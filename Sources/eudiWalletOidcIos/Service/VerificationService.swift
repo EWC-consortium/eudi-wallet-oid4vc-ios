@@ -1067,6 +1067,77 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
         return nil
     }
     
+    func extractStatusListFromCBOR(cbor: CBOR) -> (Int?, String?) {
+        guard case let CBOR.map(map) = cbor else {
+            return (nil, nil)        }
+        
+        var StatusIndex: Int? = 0
+        var StatusUri: String? = ""
+        for (key, value) in map {
+            if case let CBOR.utf8String(keyString) = key, keyString == "status" {
+                if case let CBOR.map(map) = value {
+                    for (key, value) in map {
+                        if case let CBOR.map(map) = value  {
+                            for (key, value) in map {
+                                if case let CBOR.utf8String(keyString) = key, keyString == "idx" {
+                                    if case let CBOR.unsignedInt(index) = value {
+                                        StatusIndex = Int(index)
+                                    } else {
+                                        print("The value associated with 'docType' is not a string.")
+                                    }
+                                }
+                                if case let CBOR.utf8String(keyString) = key, keyString == "uri" {
+                                    if case let CBOR.utf8String(uri) = value {
+                                        StatusUri = uri
+                                    } else {
+                                        print("The value associated with 'docType' is not a string.")
+                                    }
+                                }
+                            }
+                        } else {
+                            print("The value associated with 'docType' is not a string.")
+                        }
+                    }
+                } else {
+                    print("The value associated with 'docType' is not a string.")
+                }
+            }
+        }
+        return (StatusIndex, StatusUri)
+        
+        print("docType not found in the CBOR map.")
+    }
+    
+    func getStatusListItemsFromCbor(cborData: CBOR) -> (Int?, String?) {
+        guard case let CBOR.array(elements) = cborData else {
+            print("Expected CBOR array, but got something else.")
+            return (nil, nil)
+        }
+        var index: Int? = 0
+        var uri: String? = ""
+        for element in elements {
+            if case let CBOR.byteString(byteString) = element {
+                if let nestedCBOR = try? CBOR.decode(byteString) {
+                    if case let CBOR.tagged(tag, item) = nestedCBOR, tag.rawValue == 24 {
+                        if case let CBOR.byteString(data) = item {
+                            if let decodedInnerCBOR = try? CBOR.decode([UInt8](data)) {
+                                (index, uri) = extractStatusListFromCBOR(cbor: decodedInnerCBOR)
+                            } else {
+                                print("Failed to decode inner ByteString under Tag 24.")
+                            }
+                        }
+                    }
+                } else {
+                    print("Could not decode ByteString as CBOR, inspecting data directly.")
+                    print("ByteString data: \(byteString)")
+                }
+            } else {
+                print("Element: \(element)")
+            }
+        }
+        return (index, uri)
+    }
+    
     func getIssuerAuth(credential: String) -> CBOR? {
         if let data = Data(base64URLEncoded: credential) {
             do {
