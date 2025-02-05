@@ -36,7 +36,7 @@ class SignatureValidator {
                 } else if kid.hasPrefix("did:key:z") {
                     jwk = ProcessKeyJWKFromKID.processJWKfromKid(did: kid)
                 } else if kid.hasPrefix("did:ebsi:z") {
-                    jwk = await ProcessEbsiJWKFromKID.processJWKforEBSI(did: kid)
+                    jwk = await ProcessEbsiJWKFromKID.processJWKforEBSI(kid: kid)
                 } else if kid.hasPrefix("did:web:") {
                     if let didDocument = try? await ProcessWebJWKFromKID.fetchDIDDocument(did: kid),
                        let verificationMethod = didDocument["verificationMethod"] as? [[String: Any]],
