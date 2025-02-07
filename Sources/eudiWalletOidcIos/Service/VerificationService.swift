@@ -46,7 +46,7 @@ public class VerificationService: NSObject, VerificationServiceProtocol {
                 transactionData = presentationRequest?.transactionData?.first
             }
                 // Generate JWT payload
-                let payload = await generateJWTPayload(did: did, nonce: presentationRequest?.nonce ?? "", credentialsList: credentialsList ?? [], state: presentationRequest?.state ?? "", clientID: presentationRequest?.clientId ?? "",transactionData: transactionData)
+                let payload = await generateJWTPayload(did: did, nonce: presentationRequest?.nonce ?? UUID().uuidString, credentialsList: credentialsList ?? [], state: presentationRequest?.state ?? "", clientID: presentationRequest?.clientId ?? "",transactionData: transactionData)
                 debugPrint("payload:\(payload)")
                 var presentationDefinition :PresentationDefinitionModel? = nil
                 do {
@@ -54,7 +54,7 @@ public class VerificationService: NSObject, VerificationServiceProtocol {
                 } catch {
                     presentationDefinition = nil
                 }
-            var token = await createVPTokenAndPresentationSubmission(credentialsList: credentialsList, clientID: presentationRequest?.clientId ?? "", transactionData: transactionData, did: did, nonce: presentationRequest?.nonce ?? "", jwtHeader: header, presentationRequest: presentationRequest, presentationDefinition: presentationDefinition)
+            var token = await createVPTokenAndPresentationSubmission(credentialsList: credentialsList, clientID: presentationRequest?.clientId ?? "", transactionData: transactionData, did: did, nonce: presentationRequest?.nonce ?? UUID().uuidString, jwtHeader: header, presentationRequest: presentationRequest, presentationDefinition: presentationDefinition)
                 guard let redirectURL = presentationRequest?.redirectUri else {return nil}
                 return await sendVPRequest(vpToken: token.0, idToken: token.2, presentationSubmission: token.1 ?? nil, redirectURI: presentationRequest?.redirectUri ?? "", state: presentationRequest?.state ?? "", responseType: presentationRequest?.responseType ?? "", wua: wua, pop: pop)
             }
@@ -83,6 +83,7 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
                     claims["transaction_data_hashes_alg"] = "sha-256"
                 }
                 claims["aud"] = clientID
+                claims["nonce"] = nonce
                 let split = item.split(separator: ".")
                 var dict: [String: Any] = [:]
                 if split.count > 1 {
@@ -684,6 +685,7 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
                 claims["transaction_data_hashes_alg"] = "sha-256"
             }
             claims["aud"] = clientID
+            claims["nonce"] = nonce
             let split = item.split(separator: ".")
             var dict: [String: Any] = [:]
             if split.count > 1 {

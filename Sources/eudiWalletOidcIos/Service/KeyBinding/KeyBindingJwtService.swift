@@ -22,7 +22,6 @@ public class KeyBindingJwtService: KeyBindingJwtServiceProtocol {
         
         var predefinedClaims: [String: Any] = [
             "iat": iat,
-            "nonce": nonce,
             "sd_hash": SDJWTService.shared.calculateSHA256Hash(inputString: issuerSignedJwt)
         ]
         
