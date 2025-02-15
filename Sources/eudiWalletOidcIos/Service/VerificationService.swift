@@ -183,12 +183,14 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
                     
                     if credentialFormat == "vcsd-jwt" || credentialFormat == "vpsd-jwt"{
                         format = "vc+sd-jwt"
+                    } else if credentialFormat == "dcsd-jwt" {
+                        format = "dc+sd-jwt"
                     } else {
                         format = credentialFormat
                     }
                     let encodedFormat = format.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed.union(CharacterSet(charactersIn: "+")).subtracting(CharacterSet(charactersIn: "+")))?.replacingOccurrences(of: "+", with: "%2B")
                     var pathNested: DescriptorMap? = nil
-                    if format ==  "vc+sd-jwt" {
+                    if format ==  "vc+sd-jwt" || format == "dc+sd-jwt" {
                         pathNested = nil
                         if vpTokenList.count == 1 {
                             descMap.append(DescriptorMap(id: item.id ?? "", path: "$", format: encodedFormat ?? "", pathNested: pathNested))
@@ -245,6 +247,8 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
         }
         if credentialFormat == "vcsd-jwt" || credentialFormat == "vpsd-jwt"{
             credentialFormatString = "vc+sd-jwt"
+        } else if credentialFormat == "dcsd-jwt" {
+            credentialFormatString = "dc+sd-jwt"
         } else {
             credentialFormatString = credentialFormat
         }

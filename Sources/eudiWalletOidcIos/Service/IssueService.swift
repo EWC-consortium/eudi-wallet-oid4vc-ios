@@ -885,7 +885,7 @@ public class IssueService: NSObject, IssueServiceProtocol {
         guard let issuerConfig = issuerConfig else { return nil }
         
         if let credentialSupported = issuerConfig.credentialsSupported?.dataSharing?[type ?? ""] {
-            if credentialSupported.format == "vc+sd-jwt" {
+            if credentialSupported.format == "vc+sd-jwt" || credentialSupported.format == "dc+sd-jwt"{
                 return credentialSupported.credentialDefinition?.vct ?? credentialSupported.vct
             } else {
                 return credentialSupported.credentialDefinition?.type
