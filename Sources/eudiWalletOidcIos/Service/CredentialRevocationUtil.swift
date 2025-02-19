@@ -61,10 +61,11 @@ public class CredentialRevocationUtil {
         }
     }
     
-    func fetchStatusModel(statusList: [String]) async -> [StatusListModel]{
+    func fetchStatusModel(statusList: [String?]) async -> [StatusListModel]{
         var statusModel: [StatusListModel] = []
         for uri in statusList {
-            var request = URLRequest(url: URL(string: uri)!)
+        guard let uri = uri, let url = URL(string: uri) else { return []}
+            var request = URLRequest(url: url)
             request.httpMethod = "GET"
             request.setValue("application/statuslist+jwt", forHTTPHeaderField: "Accept")
             do {
@@ -76,6 +77,7 @@ public class CredentialRevocationUtil {
                 let statusDict = UIApplicationUtils.shared.convertStringToDictionary(text: jsonString)
                 let statusListDict = statusDict?["status_list"] as? [String: Any]
                 let bits = statusListDict?["bits"] as? Int
+        guard let bits = bits else { return []}
                 let lst = statusListDict?["lst"] as? String ?? ""
                 let statusList = StatusList.fromEncoded(lst, bits: bits ?? 0)
                 let bitsArray = statusList.decodedValues()
