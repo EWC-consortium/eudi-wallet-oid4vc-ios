@@ -1001,16 +1001,16 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
     }
     
     func splitCredentialsBySdJWT(allCredentials: [String?], isSdJwt: Bool) -> [String?] {
-        var filteredCredentials: [String?] = []
-        for item in allCredentials {
-            if isSdJwt == true,
-               item?.contains("~") == true {
-                filteredCredentials.append(item)
-            } else if isSdJwt == false,
-                      item?.contains("~") == false {
-                filteredCredentials.append(item)
-            }
-        }
+//        var filteredCredentials: [String?] = []
+//        for item in allCredentials {
+//            if isSdJwt == true,
+//               item?.contains("~") == true {
+//                filteredCredentials.append(item)
+//            } else if isSdJwt == false,
+//                      item?.contains("~") == false {
+//                filteredCredentials.append(item)
+//            }
+//        }
         return filteredCredentials
     }
     

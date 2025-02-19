@@ -123,7 +123,7 @@ public class SDJWTService {
         }
             if let inputDescriptor = inputDescriptor {
                 if inputDescriptor.constraints?.limitDisclosure == nil {
-                    return issuedJwt.isEmpty ? nil : issuedJwt
+                    return issuedJwt.isEmpty ? nil : credential
                 } else {
                     var verificationHandler : eudiWalletOidcIos.VerificationService?
                     verificationHandler = eudiWalletOidcIos.VerificationService(keyhandler: keyHandler)
@@ -322,4 +322,3 @@ public class SDJWTService {
         return String(first)
     }
 }
-
