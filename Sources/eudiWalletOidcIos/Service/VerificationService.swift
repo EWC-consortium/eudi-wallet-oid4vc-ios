@@ -90,13 +90,15 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
                     let jsonString = "\(split[1])".decodeBase64() ?? ""
                     dict = UIApplicationUtils.shared.convertStringToDictionary(text: jsonString) ?? [:]
                 }
-                if let keyBindingJwt = await KeyBindingJwtService().generateKeyBindingJwt(issuerSignedJwt: item, claims: claims, keyHandler: keyHandler), let vct = dict["vct"] as? String, !vct.isEmpty {
-                    var updatedCred = String()
-                    if item.hasSuffix("~") {
-                        updatedCred = "\(item)\(keyBindingJwt)"
-                    } else {
-                        updatedCred = "\(item)~\(keyBindingJwt)"
-                    }
+                var itemWithTilda: String? = nil
+                if item.hasSuffix("~") {
+                    itemWithTilda = item
+                } else {
+                    itemWithTilda = "\(item)~"
+                }
+                
+                if let keyBindingJwt = await KeyBindingJwtService().generateKeyBindingJwt(issuerSignedJwt: itemWithTilda, claims: claims, keyHandler: keyHandler), let vct = dict["vct"] as? String, !vct.isEmpty {
+                    var updatedCred = "\(itemWithTilda)\(keyBindingJwt)"
                     vpTokenList.append(updatedCred)
                 } else if credFormat == "mso_mdoc" {
                     mdocList.append(item)
@@ -696,14 +698,14 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
                 let jsonString = "\(split[1])".decodeBase64() ?? ""
                 dict = UIApplicationUtils.shared.convertStringToDictionary(text: jsonString) ?? [:]
             }
-            
-            if let keyBindingJwt = await KeyBindingJwtService().generateKeyBindingJwt(issuerSignedJwt: item, claims: claims, keyHandler: keyHandler), let vct = dict["vct"] as? String, !vct.isEmpty{
-                var updatedCred = String()
-                if item.hasSuffix("~") {
-                    updatedCred = "\(item)\(keyBindingJwt)"
-                } else {
-                    updatedCred = "\(item)~\(keyBindingJwt)"
-                }
+            var itemWithTilda: String? = nil
+            if item.hasSuffix("~") {
+                itemWithTilda = item
+            } else {
+                itemWithTilda = "\(item)~"
+            }
+            if let keyBindingJwt = await KeyBindingJwtService().generateKeyBindingJwt(issuerSignedJwt: itemWithTilda, claims: claims, keyHandler: keyHandler), let vct = dict["vct"] as? String, !vct.isEmpty{
+                 var updatedCred = "\(itemWithTilda)\(keyBindingJwt)"
                 updatedCredentialList.append(updatedCred)
             } else {
                 updatedCredentialList.append(item)
@@ -1011,7 +1013,7 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
 //                filteredCredentials.append(item)
 //            }
 //        }
-        return filteredCredentials
+        return allCredentials
     }
     
     func processCborCredentialToJsonString(credentialList: [String?]) -> [String] {
