@@ -98,7 +98,7 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
                 }
                 
                 if let keyBindingJwt = await KeyBindingJwtService().generateKeyBindingJwt(issuerSignedJwt: itemWithTilda, claims: claims, keyHandler: keyHandler), let vct = dict["vct"] as? String, !vct.isEmpty {
-                    var updatedCred = "\(itemWithTilda)\(keyBindingJwt)"
+                    var updatedCred = "\(itemWithTilda ?? "")\(keyBindingJwt)"
                     vpTokenList.append(updatedCred)
                 } else if credFormat == "mso_mdoc" {
                     mdocList.append(item)
@@ -705,7 +705,7 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
                 itemWithTilda = "\(item)~"
             }
             if let keyBindingJwt = await KeyBindingJwtService().generateKeyBindingJwt(issuerSignedJwt: itemWithTilda, claims: claims, keyHandler: keyHandler), let vct = dict["vct"] as? String, !vct.isEmpty{
-                 var updatedCred = "\(itemWithTilda)\(keyBindingJwt)"
+                 var updatedCred = "\(itemWithTilda ?? "")\(keyBindingJwt)"
                 updatedCredentialList.append(updatedCred)
             } else {
                 updatedCredentialList.append(item)

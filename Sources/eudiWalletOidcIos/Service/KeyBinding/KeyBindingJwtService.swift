@@ -22,7 +22,7 @@ public class KeyBindingJwtService: KeyBindingJwtServiceProtocol {
         
         var predefinedClaims: [String: Any] = [
             "iat": iat,
-            "sd_hash": SDJWTService.shared.calculateSHA256Hash(inputString: issuerSignedJwt)
+            "sd_hash": SDJWTService.shared.calculateSHA256Hash(inputString: issuerSignedData)
         ]
         
         predefinedClaims.merge(claims) { (_, new) in new }
