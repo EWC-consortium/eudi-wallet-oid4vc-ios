@@ -164,6 +164,12 @@ public struct CurrencyAmount: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         currency = try container.decodeIfPresent(String.self, forKey: .currency)
-        value = try container.decodeIfPresent(Double.self, forKey: .value)
+        if let valueDouble = try? container.decode(Double.self, forKey: .value) {
+            value = valueDouble
+        } else if let valueString = try? container.decode(String.self, forKey: .value) {
+            value = Double(valueString)
+        } else {
+            value = nil
+        }
     }
 }
