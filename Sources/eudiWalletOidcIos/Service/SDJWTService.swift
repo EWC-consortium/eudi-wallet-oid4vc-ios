@@ -179,8 +179,8 @@ public class SDJWTService {
                             }
                         }
                     }
-                    print("")
-                    for data in disclosureList {
+                    let uniqueDisclosureSet = Array(Set(disclosureList))
+                    for data in uniqueDisclosureSet {
                         issuedJwt += "~\(data)"
                     }
                     return issuedJwt.isEmpty ? nil : issuedJwt
