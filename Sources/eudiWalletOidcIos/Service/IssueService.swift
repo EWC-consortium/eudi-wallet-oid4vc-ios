@@ -764,7 +764,7 @@ public class IssueService: NSObject, IssueServiceProtocol {
                     let jsonData = errorData.data(using: .utf8)
                     do {
                         if let dictionary = try JSONSerialization.jsonObject(with: jsonData!, options: []) as? [String: Any] {
-                            let errorString = dictionary["error"] as? String
+                            let errorString = dictionary["error_description"] as? String
                             let error = EUDIError(from: ErrorResponse(message: errorString))
                             return TokenResponse(error: error)
                         }
