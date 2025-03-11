@@ -34,11 +34,10 @@ public class IssueService: NSObject, IssueServiceProtocol {
     /// - Returns: A `CredentialOffer` object if the resolution is successful; otherwise, `nil`.
     public func resolveCredentialOffer(credentialOffer credentialOfferString: String) async throws -> CredentialOffer? {
             let credentialOfferUrl = URL(string: credentialOfferString)
-            guard let credentialOfferUri = credentialOfferUrl?.queryParameters?["credential_offer_uri"] else { return nil }
-            let jsonDecoder = JSONDecoder()
+           let credentialOfferUri = credentialOfferUrl?.queryParameters?["credential_offer_uri"]
             
-            if credentialOfferUri != "" {
-                var request = URLRequest(url: URL(string: credentialOfferUri)!)
+        if let credentialOfferUri = credentialOfferUri, !credentialOfferUri.isEmpty {
+                var request = URLRequest(url: URL(string: credentialOfferUri ?? "")!)
                 request.httpMethod = "GET"
                 
                 let (data, response) = try await URLSession.shared.data(for: request)
@@ -50,70 +49,56 @@ public class IssueService: NSObject, IssueServiceProtocol {
                         let error = EUDIError(from: ErrorResponse(message: errorData, code: nil))
                         return CredentialOffer(fromError: error)
                     } else {
-                    guard let jsonObject = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
-                        return nil
-                        //throw EUDIError(from: ErrorResponse(message: "Invalid JSON format", code: nil))
-                    }
-                    
-                    // Check for specific keys to determine the model type
-                    if jsonObject["credentials"] != nil {
-                        // If the key 'credentialIssuer' is present, decode as CredentialOfferResponse
-                        let model = try jsonDecoder.decode(CredentialOfferResponse.self, from: data)
-                        
-                        if model.credentialIssuer == nil {
-                            let error = EUDIError(from: ErrorResponse(message: "Invalid DID", code: nil))
-                            return CredentialOffer(fromError: error)
+                        guard let jsonObject = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
+                            return nil
                         }
-                        return CredentialOffer(from: model)
-                        
-                    } else if jsonObject["credential_configuration_ids"] != nil {
-                        // If the key 'issuer' is present, decode as CredentialOfferV2
-                        let modelV2 = try jsonDecoder.decode(CredentialOfferV2.self, from: data)
-                        
-                        if modelV2.credentialIssuer == nil {
-                            let error = EUDIError(from: ErrorResponse(message: "Invalid DID", code: nil))
-                            return CredentialOffer(fromError: error)
-                        }
-                        return CredentialOffer(from: modelV2)
-                    } else {
-                        // If neither key is present, return an error
-                        let error = EUDIError(from: ErrorResponse(message: "Invalid data format", code: nil))
-                        return CredentialOffer(fromError: error)
+                        let credentialOfferResponse = parseCredentialOfferResponseModel(jsonData: jsonObject, data: data)
+                        return credentialOfferResponse
                     }
-            }
                 }
             } else {
                 guard let credentialOffer = credentialOfferUrl?.queryParameters?["credential_offer"] else { return nil }
                 let jsonData = Data(credentialOffer.utf8)
-                
+                guard let jsonObject = try JSONSerialization.jsonObject(with: jsonData, options: []) as? [String: Any] else {
+                    return nil
+                }
                 if credentialOffer != "" {
-                    do {
-                        if let model = try? jsonDecoder.decode(CredentialOfferResponse.self, from: jsonData) {
-                            if model.credentialIssuer == nil {
-                                let error = EUDIError(from: ErrorResponse(message: "Invalid DID", code: nil))
-                                return CredentialOffer(fromError: error)
-                            }
-                            return CredentialOffer(from: model)
-                        }
-                        
-                        else if let modelV2 = try? jsonDecoder.decode(CredentialOfferV2.self, from: jsonData) {
-                            if modelV2.credentialIssuer == nil {
-                                let error = EUDIError(from: ErrorResponse(message: "Invalid DID", code: nil))
-                                return CredentialOffer(fromError: error)
-                            }
-                            return CredentialOffer(from: modelV2)
-                        }
-                        
-                        else {
-                            let error = EUDIError(from: ErrorResponse(message: "Invalid data format", code: nil))
-                            return CredentialOffer(fromError: error)
-                        }
-                    }
+                    let credentialOfferResponse = parseCredentialOfferResponseModel(jsonData: jsonObject, data: jsonData)
+                    return credentialOfferResponse
                 } else {
                     return nil
                 }
             }
+        return nil
+    }
+    
+     func parseCredentialOfferResponseModel(jsonData: [String: Any], data: Data?) -> CredentialOffer? {
+        let jsonDecoder = JSONDecoder()
+        if jsonData["credentials"] != nil {
+            if let data = data, let model = try? jsonDecoder.decode(CredentialOfferResponse.self, from: data) {
+                if model.credentialIssuer == nil {
+                    let error = EUDIError(from: ErrorResponse(message: "Invalid DID", code: nil))
+                    return CredentialOffer(fromError: error)
+                }
+                return CredentialOffer(from: model)
+            }
+        } else if jsonData["credential_configuration_ids"] != nil {
+            
+            if let data = data, let modelV2 = try? jsonDecoder.decode(CredentialOfferV2.self, from: data) {
+                if modelV2.credentialIssuer == nil {
+                    let error = EUDIError(from: ErrorResponse(message: "Invalid DID", code: nil))
+                    return CredentialOffer(fromError: error)
+                }
+                return CredentialOffer(from: modelV2)
+            }
         }
+        
+        else {
+            let error = EUDIError(from: ErrorResponse(message: "Invalid data format", code: nil))
+            return CredentialOffer(fromError: error)
+        }
+    return nil
+    }
     
     private func buildAuthorizationRequestV1(credentialOffer: CredentialOffer?, docType: String, format: String) -> String {
         var authorizationDetails =  if format == "mso_mdoc" {
