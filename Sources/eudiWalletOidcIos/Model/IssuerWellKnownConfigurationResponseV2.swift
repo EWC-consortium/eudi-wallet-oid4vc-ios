@@ -1,12 +1,10 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by oem on 10/10/24.
 //
-
 import Foundation
-
 public struct IssuerWellKnownConfigurationResponseV2: Codable {
     let credentialIssuer: String?
     let authorizationServer: String?
@@ -15,6 +13,7 @@ public struct IssuerWellKnownConfigurationResponseV2: Codable {
     let deferredCredentialEndpoint: String?
     let display: [AnyObject]?
     let credentialsSupported: [AnyObject]?
+    public let notificationEndPoint: String?
     
     enum CodingKeys: String, CodingKey {
         case credentialIssuer = "credential_issuer"
@@ -24,6 +23,7 @@ public struct IssuerWellKnownConfigurationResponseV2: Codable {
         case deferredCredentialEndpoint = "deferred_credential_endpoint"
         case display = "display"
         case credentialsSupported = "credential_configurations_supported"
+        case notificationEndPoint = "notification_endpoint"
     }
     
     public func encode(to encoder: Encoder) throws {
@@ -53,5 +53,6 @@ public struct IssuerWellKnownConfigurationResponseV2: Codable {
         } else {
             display = []
         }
+        notificationEndPoint = try? container.decode(String.self, forKey: .notificationEndPoint)
     }
 }

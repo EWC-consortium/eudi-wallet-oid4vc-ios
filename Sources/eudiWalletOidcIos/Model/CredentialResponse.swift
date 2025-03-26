@@ -13,6 +13,7 @@ public struct CredentialResponse {
     public var authorizationConfig: AuthorisationServerWellKnownConfiguration?
     public var credentialOffer: CredentialOffer?
     public var error: EUDIError?
+    public var notificationID: String?
     
     
     public init(from: CredentialResponseV1) {
@@ -25,6 +26,7 @@ public struct CredentialResponse {
         authorizationConfig = from.authorizationConfig
         credentialOffer = from.credentialOffer
         error = from.error
+        notificationID = from.notificationID
     }
     
     
@@ -38,6 +40,7 @@ public struct CredentialResponse {
         authorizationConfig = from.authorizationConfig
         credentialOffer = from.credentialOffer
         error = from.error
+        notificationID = from.notificationID
     }
     
     public init(fromError: EUDIError) {

@@ -4,9 +4,7 @@
 //
 //  Created by Mumthasir mohammed on 11/03/24.
 //
-
 import Foundation
-
 // MARK: - TokenResponse (getAccessToken() Api call response model))
 public struct TokenResponse: Codable {
     public var accessToken: String?
@@ -17,7 +15,7 @@ public struct TokenResponse: Codable {
     public var cNonceExpiresIn: Int?
     public var scope: String?
     public var error: EUDIError? // Optional error property
-
+    public var refreshToken: String?
     enum CodingKeys: String, CodingKey {
         case accessToken = "access_token"
         case tokenType = "token_type"
@@ -26,12 +24,11 @@ public struct TokenResponse: Codable {
         case cNonce = "c_nonce"
         case cNonceExpiresIn = "c_nonce_expires_in"
         case scope = "scope"
+        case refreshToken = "refresh_token"
     }
-
     // Initializer to handle the case when an error occurs
 //    init(error: error) {
 //        self.error = error
 //        // Other properties will be nil by default
 //    }
 }
-

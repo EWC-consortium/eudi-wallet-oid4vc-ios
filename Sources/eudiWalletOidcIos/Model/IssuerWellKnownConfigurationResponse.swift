@@ -195,6 +195,7 @@ public struct IssuerWellKnownConfigurationResponse: Codable {
     let deferredCredentialEndpoint: String?
     let display: [AnyObject]?
     let credentialsSupported: [AnyObject]?
+    public let notificationEndPoint: String?
     
     enum CodingKeys: String, CodingKey {
         case credentialIssuer = "credential_issuer"
@@ -204,6 +205,7 @@ public struct IssuerWellKnownConfigurationResponse: Codable {
         case deferredCredentialEndpoint = "deferred_credential_endpoint"
         case display = "display"
         case credentialsSupported = "credentials_supported"
+        case notificationEndPoint = "notification_endpoint"
     }
     
     public func encode(to encoder: Encoder) throws {
@@ -233,5 +235,6 @@ public struct IssuerWellKnownConfigurationResponse: Codable {
         } else {
             display = []
         }
+        notificationEndPoint = try? container.decode(String.self, forKey: .notificationEndPoint)
     }
 }
