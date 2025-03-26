@@ -23,7 +23,7 @@ protocol IssueServiceProtocol {
     ///   - authServer: The authorization server configuration.
     ///   - codeVerifier - to build the authorisation request
     /// - Returns: code if successful; otherwise, nil.
-    func processAuthorisationRequest(did: String, credentialOffer: CredentialOffer, codeVerifier: String, authServer: AuthorisationServerWellKnownConfiguration, credentialFormat: String, docType: String, issuerConfig: IssuerWellKnownConfiguration?) async -> WrappedResponse?
+    func processAuthorisationRequest(did: String, credentialOffer: CredentialOffer, codeVerifier: String, authServer: AuthorisationServerWellKnownConfiguration, credentialFormat: String, docType: String, issuerConfig: IssuerWellKnownConfiguration?, redirectURI: String?) async -> WrappedResponse?
     
     // Processes the token request to obtain the access token.
     /** - Parameters
@@ -38,7 +38,7 @@ protocol IssueServiceProtocol {
      
      - Returns: A `TokenResponse` object if the request is successful, otherwise `nil`.
      */
-    func processTokenRequest(did: String, tokenEndPoint: String?, code: String, codeVerifier: String, isPreAuthorisedCodeFlow: Bool, userPin: String?, version: String?,  clientIdAssertion: String, wua: String, pop: String) async -> TokenResponse?
+    func processTokenRequest(did: String, tokenEndPoint: String?, code: String, codeVerifier: String, isPreAuthorisedCodeFlow: Bool, userPin: String?, version: String?,  clientIdAssertion: String, wua: String, pop: String, redirectURI: String?) async -> TokenResponse?
     
     
     // Processes a credential request to the specified credential endpoint.

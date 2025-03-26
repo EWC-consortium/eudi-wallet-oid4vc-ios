@@ -175,10 +175,10 @@ public class IssueService: NSObject, IssueServiceProtocol {
     public func processAuthorisationRequest(did: String,
                                             credentialOffer: CredentialOffer,
                                             codeVerifier: String,
-                                            authServer: AuthorisationServerWellKnownConfiguration, credentialFormat: String, docType: String, issuerConfig: IssuerWellKnownConfiguration?) async -> WrappedResponse? {
+                                            authServer: AuthorisationServerWellKnownConfiguration, credentialFormat: String, docType: String, issuerConfig: IssuerWellKnownConfiguration?, redirectURI: String?) async -> WrappedResponse? {
         
         guard let authorizationEndpoint = authServer.authorizationEndpoint else { return WrappedResponse(data: nil, error: nil) }
-        let redirectUri = "http://localhost:8080"
+        let redirectUri = redirectURI ?? "openid://callback"
         
         // Gather query parameters
         let responseType = "code"
@@ -284,12 +284,13 @@ public class IssueService: NSObject, IssueServiceProtocol {
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         
         var responseUrl = ""
+        let session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
         do {
             // Try to fetch data from the URL session
 //            if session == nil{
 //                session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
 //            }
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await session.data(for: request)
             
             let httpres = response as? HTTPURLResponse
             if httpres?.statusCode == 302, let location = httpres?.value(forHTTPHeaderField: "Location"){
@@ -314,7 +315,9 @@ public class IssueService: NSObject, IssueServiceProtocol {
             responseUrl.contains("presentation_definition=") || responseUrl.contains("presentation_definition_uri=") ||
             (responseUrl.contains("request_uri=") && !responseUrl.contains("response_type=") && !responseUrl.contains("state=")){
             return WrappedResponse(data: responseUrl, error: nil)
-        } else {
+        } else if !responseUrl.hasPrefix(redirectURI ?? "") {
+            return WrappedResponse(data: responseUrl, error: nil)
+        }else {
             // if 'code' is not present
             let url = URL(string: responseUrl)
             let state = url?.queryParameters?["state"]
@@ -440,7 +443,8 @@ public class IssueService: NSObject, IssueServiceProtocol {
         version: String?,
         clientIdAssertion: String = "",
         wua: String,
-        pop: String) async -> TokenResponse? {
+        pop: String,
+        redirectURI: String?) async -> TokenResponse? {
             
             if isPreAuthorisedCodeFlow {
                 let tokenResponse =
@@ -461,7 +465,8 @@ public class IssueService: NSObject, IssueServiceProtocol {
                                      tokenEndpoint: tokenEndPoint ?? "",
                                      clientIdAssertion: clientIdAssertion,
                                      wua: wua,
-                                     pop: pop)
+                                     pop: pop,
+                                     redirectURI: redirectURI)
                 return tokenResponse
             }
         }
@@ -783,7 +788,8 @@ public class IssueService: NSObject, IssueServiceProtocol {
         tokenEndpoint: String?,
         clientIdAssertion: String = "",
         wua: String,
-        pop: String) async -> TokenResponse? {
+        pop: String,
+        redirectURI: String?) async -> TokenResponse? {
             
             let jsonDecoder = JSONDecoder()
             let grantType = "authorization_code"
@@ -795,7 +801,7 @@ public class IssueService: NSObject, IssueServiceProtocol {
                 "code": authCode,
                 "client_id": didKeyIdentifier,
                 "code_verifier": codeVerifier,
-                "redirect_uri": "http://localhost:8080"
+                "redirect_uri": redirectURI ?? "openid://callback"
             ]
             
             if !clientIdAssertion.isEmpty {
