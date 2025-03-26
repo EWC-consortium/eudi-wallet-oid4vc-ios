@@ -14,91 +14,122 @@ class SignatureValidator {
     
     static func validateSign(jwt: String?, jwksURI: String?, format: String) async throws-> Bool? {
         var jwk: [String: Any] = [:]
+        var jwksArray: [Any] = []
         if format == "mso_mdoc" {
             return true
         } else {
             guard let split = jwt?.split(separator: "."), split.count > 1 else { return true}
             guard let jsonString = "\(split[0])".decodeBase64(),
                   let jsonObject = UIApplicationUtils.shared.convertStringToDictionary(text: jsonString) else { return false }
-            if (jsonObject["kid"] as? String)?.isEmpty ?? true, let x5cList = jsonObject["x5c"] as? [String]{
+            if let x5cList = jsonObject["x5c"] as? [String]{
                 if let x5cList = extractX5C(data: jsonObject) {
-                    if X509SanRequestVerifier.shared.validateSignatureWithCertificate(jwt: jwt ?? "", x5cChain: x5cList) {
-                        return true
-                    } else {
-                        throw ValidationError.invalidKID
-                    }
+                    jwksArray.append(x5cList)
                 }
-            } else if var kid = jsonObject["kid"] as? String {
+            }
+            if var kid = jsonObject["kid"] as? String {
                 if kid.hasPrefix("did:jwk:") {
                     if let parsedJWK = ProcessJWKFromKID.parseDIDJWK(kid) {
-                        jwk = parsedJWK
+                        jwksArray.append(parsedJWK)
                     }
-                } else if kid.hasPrefix("did:key:z") {
+                }
+                if kid.hasPrefix("did:key:z") {
                     jwk = ProcessKeyJWKFromKID.processJWKfromKid(did: kid)
-                } else if kid.hasPrefix("did:ebsi:z") {
+                    jwksArray.append(jwk)
+                }
+                if kid.hasPrefix("did:ebsi:z") {
                     jwk = await ProcessEbsiJWKFromKID.processJWKforEBSI(kid: kid)
-                } else if kid.hasPrefix("did:web:") {
+                    jwksArray.append(jwk)
+                }
+                if kid.hasPrefix("did:web:") {
                     if let didDocument = try? await ProcessWebJWKFromKID.fetchDIDDocument(did: kid),
                        let verificationMethod = didDocument["verificationMethod"] as? [[String: Any]],
                        let publicKeyJwk = verificationMethod.first?["publicKeyJwk"] as? [String: Any] {
                         jwk = publicKeyJwk
+                        jwksArray.append(jwk)
                     } else {
                         print("Failed to fetch or parse DID document for did:web")
                         return false
                     }
                     
-                } else {
-                    jwk = await ProcessJWKFromJwksUri.processJWKFromJwksURI2(kid: kid, jwksURI: jwksURI)
                 }
-            } else {
+            }
+            if let jwksURI = jwksURI {
                 let kid = jsonObject["kid"] as? String
                 jwk = await ProcessJWKFromJwksUri.processJWKFromJwksURI2(kid: kid, jwksURI: jwksURI)
+                if !jwk.isEmpty {
+                    jwksArray.append(jwk)
+                }
             }
-            return validateSignature(jwt: jwt, jwk: jwk)
+            let (isValidSignature, isX5cSigNotValid) = validateSignature(jwt: jwt, jwk: jwksArray)
+            if isX5cSigNotValid {
+                throw ValidationError.invalidKID
+            } else {
+                return isValidSignature
+            }
         }
     }
     
-    static private func validateSignature(jwt: String?, jwk: [String: Any]) -> Bool? {
-        let segments = jwt?.split(separator: ".")
-        guard segments?.count == 3 else {
-            return true
-        }
-        let headerData = String(segments?[0] ?? "")
-        let payloadData = String(segments?[1] ?? "")
-        var sigatureData = String(segments?[2] ?? "")
-        if sigatureData.contains("~") {
-            let splitData = sigatureData.split(separator: "~")
-            sigatureData = String(splitData[0])
-        }
-        guard let headerEncoded = Data(base64URLEncoded: headerData) else { return false }
-        guard let signatureEncoded = Data(base64URLEncoded: sigatureData) else { return false }
-        guard let headerJson = try? JSONSerialization.jsonObject(with: headerEncoded, options: []) as? [String: Any], let alg = headerJson["alg"] as? String else {
-            return false
-        }
-       
-        var publicKey: Any?
-        if alg == "RS256" {
-            publicKey = createRSAPublicKey(from: jwk)
-        } else {
-            guard let crv = jwk["crv"] as? String else {
-                return false
+    static private func validateSignature(jwt: String?, jwk: [Any]) -> (Bool?, Bool) {
+        var validationResults: [Bool] = []
+        var isX5cSigNotValid: Bool = false
+        for data in jwk {
+            if let item = data as? [String] {
+                let isValid = X509SanRequestVerifier.shared.validateSignatureWithCertificate(jwt: jwt ?? "", x5cChain: item)
+                validationResults.append(isValid)
+                if !isValid {
+                    isX5cSigNotValid = true
+                }
+            } else {
+                let segments = jwt?.split(separator: ".")
+                guard segments?.count == 3 else {
+                    validationResults.append(false)
+                    continue
+                }
+                let headerData = String(segments?[0] ?? "")
+                let payloadData = String(segments?[1] ?? "")
+                var sigatureData = String(segments?[2] ?? "")
+                if sigatureData.contains("~") {
+                    let splitData = sigatureData.split(separator: "~")
+                    sigatureData = String(splitData[0])
+                }
+                guard let headerEncoded = Data(base64URLEncoded: headerData) else { validationResults.append(false)
+                    continue }
+                guard let signatureEncoded = Data(base64URLEncoded: sigatureData) else { validationResults.append(false)
+                    continue }
+                guard let headerJson = try? JSONSerialization.jsonObject(with: headerEncoded, options: []) as? [String: Any], let alg = headerJson["alg"] as? String else {
+                    validationResults.append(false)
+                    continue
+                }
+                
+                var publicKey: Any?
+                if alg == "RS256" {
+                    publicKey = createRSAPublicKey(from: data as? [String: Any] ?? [:])
+                } else {
+                    guard let jwkData = data as? [String: Any], let crv = jwkData["crv"] as? String else {
+                        validationResults.append(false)
+                        continue
+                    }
+                    let algToCrvMap: [String: String] = [
+                        "ES256": "P-256",
+                        "ES384": "P-384",
+                        "ES512": "P-521"
+                    ]
+                    if let expectedCrv = algToCrvMap[alg], expectedCrv != crv {
+                        validationResults.append(false)
+                        continue
+                    }
+                    publicKey = extractPublicKey(from: data as? [String: Any] ?? [:], crv: crv)
+                }
+                if publicKey == nil { validationResults.append(false)
+                    continue }
+                
+                let signedData = "\(headerData).\(payloadData)".data(using: .utf8)!
+                let isVerified = verifySignature(signature: signatureEncoded, for: signedData, using: publicKey)
+                
+                validationResults.append(isVerified)
             }
-            let algToCrvMap: [String: String] = [
-                "ES256": "P-256",
-                "ES384": "P-384",
-                "ES512": "P-521"
-            ]
-            if let expectedCrv = algToCrvMap[alg], expectedCrv != crv {
-                return false
-            }
-            publicKey = extractPublicKey(from: jwk, crv: crv)
         }
-        if publicKey == nil { return false}
-        
-        let signedData = "\(headerData).\(payloadData)".data(using: .utf8)!
-        let isVerified = verifySignature(signature: signatureEncoded, for: signedData, using: publicKey)
-        
-        return isVerified
+        return (validationResults.contains(true), isX5cSigNotValid)
     }
     
     static private func createRSAPublicKey(from jwk: [String: Any]) -> SecKey? {
