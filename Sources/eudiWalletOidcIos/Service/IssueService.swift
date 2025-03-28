@@ -46,8 +46,12 @@ public class IssueService: NSObject, IssueServiceProtocol {
                     let httpRes = response as? HTTPURLResponse
                     if let res = httpRes?.statusCode, res >= 400 {
                         let errorData = String(data: data, encoding: .utf8)
-                        let error = EUDIError(from: ErrorResponse(message: errorData, code: nil))
-                        return CredentialOffer(fromError: error)
+                        if let eudiErrorData = ErrorHandler.processError(data: data) {
+                            return CredentialOffer(fromError: eudiErrorData)
+                        } else {
+                            let error = EUDIError(from: ErrorResponse(message: errorData, code: nil))
+                            return CredentialOffer(fromError: error)
+                        }
                     } else {
                         guard let jsonObject = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
                             return nil
@@ -315,9 +319,19 @@ public class IssueService: NSObject, IssueServiceProtocol {
             responseUrl.contains("presentation_definition=") || responseUrl.contains("presentation_definition_uri=") ||
             (responseUrl.contains("request_uri=") && !responseUrl.contains("response_type=") && !responseUrl.contains("state=")){
             return WrappedResponse(data: responseUrl, error: nil)
+        } else if let url = URL(string: responseUrl),  let state = url.queryParameters?["state"], let redirectUri = url.queryParameters?["redirect_uri"] , let responseType = url.queryParameters?["response_type"], responseType == "id_token" {
+            let nonce = url.queryParameters?["nonce"]
+            let uri = redirectUri.replacingOccurrences(of: "\n", with: "") ?? ""
+            let code =  await processAuthorisationRequestUsingIdToken(
+                did: did,
+                authServerWellKnownConfig: authServer,
+                redirectURI:  uri.trimmingCharacters(in: .whitespaces) ,
+                nonce: nonce ?? "",
+                state: state ?? "")
+            return WrappedResponse(data: code, error: nil)
         } else if !responseUrl.hasPrefix(redirectURI ?? "") {
             return WrappedResponse(data: responseUrl, error: nil)
-        }else {
+        } else {
             // if 'code' is not present
             let url = URL(string: responseUrl)
             let state = url?.queryParameters?["state"]
@@ -617,7 +631,11 @@ public class IssueService: NSObject, IssueServiceProtocol {
                 if httpRes?.statusCode ?? 0 >= 400 {
                     let errorString = String(data: data, encoding: .utf8)
                     let error = EUDIError(from: ErrorResponse(message: errorString))
-                    return CredentialResponse(fromError: error)
+                    if let eudiErrorData = ErrorHandler.processError(data: data) {
+                        return CredentialResponse(fromError: eudiErrorData)
+                    } else {
+                        return CredentialResponse(fromError: error)
+                    }
                 }
                 guard let jsonObject = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else { return nil }
                 if jsonObject["acceptance_token"] != nil {
@@ -752,19 +770,8 @@ public class IssueService: NSObject, IssueServiceProtocol {
                 let dataString = String.init(data: data, encoding: .utf8)
                 if let dataResponse = response as? HTTPURLResponse, dataResponse.statusCode >= 400, let errorData =  dataString {
                     let jsonData = errorData.data(using: .utf8)
-                    do {
-                        if let dictionary = try JSONSerialization.jsonObject(with: jsonData!, options: []) as? [String: Any] {
-                            let errorString = dictionary["error_description"] as? String
-                            let error = EUDIError(from: ErrorResponse(message: errorString))
-                            return TokenResponse(error: error)
-                        }
-                    } catch {
-                        print("Error decoding JSON: \(error)")
-                        let nsError = error as NSError
-                        let errorCode = nsError.code
-                        let error = EUDIError(from: ErrorResponse(message:error.localizedDescription, code: errorCode))
-                        return TokenResponse(error: error)
-                    }
+                    ErrorHandler.processError(data: data)
+                    return TokenResponse(error: ErrorHandler.processError(data: data))
                 } else {
                     let model = try jsonDecoder.decode(TokenResponse.self, from: data)
                     return model
@@ -827,7 +834,7 @@ public class IssueService: NSObject, IssueServiceProtocol {
                 if httpsResponse?.statusCode ?? 0 >= 400 {
                     let dataString = String(data: data, encoding: .utf8)
                     let error = EUDIError(from: ErrorResponse(message: dataString))
-                    return TokenResponse(error: error)
+                    return TokenResponse(error: ErrorHandler.processError(data: data))
                 } else {
                     let model = try jsonDecoder.decode(TokenResponse.self, from: data)
                     return model
