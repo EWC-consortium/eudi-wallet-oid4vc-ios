@@ -506,37 +506,13 @@ public class IssueService: NSObject, IssueServiceProtocol {
         format: String) async -> CredentialResponse? {
             
             let jsonDecoder = JSONDecoder()
-            let methodSpecificId = did.replacingOccurrences(of: "did:key:", with: "")
-            
-            // Generate JWT header
-            let header = ([
-                "typ": "openid4vci-proof+jwt",
-                "alg": "ES256",
-                "kid": "\(did)#\(methodSpecificId)"
-            ]).toString() ?? ""
-            
-            // Generate JWT payload
-            let currentTime = Int(Date().epochTime) ?? 0
-            let payload = ([
-                "iss": "\(did)",
-                "iat": currentTime,
-                "aud": "\(credentialOffer.credentialIssuer ?? "")",
-                "exp": currentTime + 86400,
-                "nonce": "\(nonce)"
-            ] as [String : Any]).toString() ?? ""
-            
             guard let url = URL(string: issuerConfig.credentialEndpoint ?? "") else { return nil }
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue( "Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
             
-            // Create JWT token
-            let headerData = Data(header.utf8)
-            
-//            let keyHandler = SecureEnclaveHandler(organisationID: keyID ?? "")
-            let secureData = await keyHandler.generateSecureKey()
-            guard let idToken = keyHandler.sign(payload: payload, header: headerData, withKey: secureData?.privateKey) else{return nil}
+            guard let idToken = await ProofService.generateProof(nonce: nonce, credentialOffer: credentialOffer, issuerConfig: issuerConfig, did: did, keyHandler: keyHandler) else {return nil}
             
             let credentialTypes = credentialOffer.credentials?[0].types ?? []
             let types = getTypesFromIssuerConfig(issuerConfig: issuerConfig, type: credentialTypes.last ?? "")
