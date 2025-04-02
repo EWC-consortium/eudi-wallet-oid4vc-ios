@@ -10,7 +10,7 @@ import Foundation
 class ProcessWebJWKFromKID {
     static func fetchDIDDocument(did: String) async throws -> [String: Any]? {
         guard did.hasPrefix("did:web:") else { return nil }
-        
+        var publicKeyJwk: [String: Any]? = [:]
         let didWithoutPrefix = did.replacingOccurrences(of: "did:web:", with: "")
         let pathAndFragment = didWithoutPrefix.split(separator: "#").first ?? ""
         let didParts = pathAndFragment.split(separator: ":")
@@ -19,7 +19,12 @@ class ProcessWebJWKFromKID {
         
         let host = didParts[0]
         let path = didParts.dropFirst().joined(separator: "/")
-        let didDocURLString = "https://\(host)/\(path)/did.json"
+        var didDocURLString: String = ""
+        if path == nil || path == "" {
+            didDocURLString = "https://\(host)/.well-known/did.json"
+        } else {
+            didDocURLString = "https://\(host)/\(path)/did.json"
+        }
         
         guard let didDocURL = URL(string: didDocURLString) else { return nil }
         
@@ -30,7 +35,13 @@ class ProcessWebJWKFromKID {
         }
         
         let didDoc = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
-        
-        return didDoc
+        if let verificationMethod = didDoc?["verificationMethod"] as? [[String: Any]] {
+            for (index, item) in verificationMethod.enumerated(){
+                if item["id"] as? String == did {
+                    publicKeyJwk = verificationMethod[index]["publicKeyJwk"] as? [String: Any]
+                }
+            }
+        }
+        return publicKeyJwk
     }
 }

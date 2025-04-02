@@ -41,9 +41,7 @@ class SignatureValidator {
                     jwksArray.append(jwk)
                 }
                 if kid.hasPrefix("did:web:") {
-                    if let didDocument = try? await ProcessWebJWKFromKID.fetchDIDDocument(did: kid),
-                       let verificationMethod = didDocument["verificationMethod"] as? [[String: Any]],
-                       let publicKeyJwk = verificationMethod.first?["publicKeyJwk"] as? [String: Any] {
+                    if let publicKeyJwk = try? await ProcessWebJWKFromKID.fetchDIDDocument(did: kid){
                         jwk = publicKeyJwk
                         jwksArray.append(jwk)
                     }
