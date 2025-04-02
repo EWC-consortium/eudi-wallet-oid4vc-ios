@@ -46,11 +46,12 @@ class SignatureValidator {
                        let publicKeyJwk = verificationMethod.first?["publicKeyJwk"] as? [String: Any] {
                         jwk = publicKeyJwk
                         jwksArray.append(jwk)
-                    } else {
-                        print("Failed to fetch or parse DID document for did:web")
-                        return false
                     }
-                    
+                }
+                if kid.hasPrefix("did:tdw:") {
+                    if let publicKeyJwk = try await ProcessTrustWebJwkFromKid.fetchDIDDocument(did: kid) {
+                        jwksArray.append(publicKeyJwk)
+                    }
                 }
             }
             if let jwksURI = jwksURI {
