@@ -1,7 +1,7 @@
 import Foundation
 import zlib
 
-class StatusList {
+class IETFStatusList {
     private var list: [UInt8]
     private let bits: Int
     private let divisor: Int
@@ -14,8 +14,8 @@ class StatusList {
         self.list = Array(repeating: 0, count: size / divisor)
     }
 
-    static func fromEncoded(_ encoded: String, bits: Int = 1) -> StatusList {
-        let newInstance = StatusList(size: 0, bits: bits)
+    static func fromEncoded(_ encoded: String, bits: Int = 1) -> IETFStatusList {
+        let newInstance = IETFStatusList(size: 0, bits: bits)
         newInstance.decode(encoded)
         return newInstance
     }

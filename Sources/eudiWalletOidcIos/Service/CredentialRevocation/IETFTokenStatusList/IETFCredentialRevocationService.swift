@@ -1,17 +1,13 @@
 //
 //  File.swift
+//  eudiWalletOidcIos
 //
-//
-//  Created by iGrant on 02/12/24.
+//  Created by iGrant on 09/04/25.
 //
 
 import Foundation
-import Compression
-import zlib
 
-public class CredentialRevocationUtil {
-    
-    public init() {}
+class IETFCredentialRevocationService: CredentialRevocationServiceProtocol {
     
     public func getRevokedCredentials(credentialList: [String], keyHandler: SecureKeyProtocol) async -> [String]{
         var revokedCredentials: [String] = []
@@ -29,7 +25,7 @@ public class CredentialRevocationUtil {
             for data in statusModelList {
                 if statusUri == data.satausUri {
                     let statusList = data.bitsArray?[statusIndex]
-                    if statusList == 1 {
+                    if statusList as? Int == 1 {
                         revokedCredentials.append(item)
                     }
                 }
@@ -40,7 +36,7 @@ public class CredentialRevocationUtil {
     
     func getStatusDetailsFromStatusList(jwt: String?, keyHandler: SecureKeyProtocol) -> (String?, Int?) {
         guard let jwt = jwt else { return (nil, nil)}
-        if jwt.contains(".") {
+        if JWTUtils().isValidJwt(jwt) {
             let split = jwt.split(separator: ".")
             if split.count > 1 {
                 let jsonString = "\(split[1])".decodeBase64() ?? ""
@@ -61,7 +57,7 @@ public class CredentialRevocationUtil {
         }
     }
     
-    func fetchStatusModel(statusList: [String?]) async -> [StatusListModel]{
+    func fetchStatusModel(statusList: [String?]) async -> [StatusListModel] {
         var statusModel: [StatusListModel] = []
         for uri in statusList {
         guard let uri = uri, let url = URL(string: uri) else { return []}
@@ -79,7 +75,7 @@ public class CredentialRevocationUtil {
                 let bits = statusListDict?["bits"] as? Int
         guard let bits = bits else { return []}
                 let lst = statusListDict?["lst"] as? String ?? ""
-                let statusList = StatusList.fromEncoded(lst, bits: bits ?? 0)
+                let statusList = IETFStatusList.fromEncoded(lst, bits: bits ?? 0)
                 let bitsArray = statusList.decodedValues()
                 let statusValues = StatusListModel(satausUri: uri, bitsArray: bitsArray)
                 statusModel.append(statusValues)
@@ -89,10 +85,9 @@ public class CredentialRevocationUtil {
         }
         return statusModel
     }
-    
 }
 
 struct StatusListModel {
     let satausUri: String?
-    let bitsArray: [Int]?
+    let bitsArray: [Any]?
 }
