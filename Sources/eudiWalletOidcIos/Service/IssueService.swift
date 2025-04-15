@@ -319,8 +319,9 @@ public class IssueService: NSObject, IssueServiceProtocol {
             responseUrl.contains("presentation_definition=") || responseUrl.contains("presentation_definition_uri=") ||
             (responseUrl.contains("request_uri=") && !responseUrl.contains("response_type=") && !responseUrl.contains("state=")){
             return WrappedResponse(data: responseUrl, error: nil)
-        } else if let url = URL(string: responseUrl),  let state = url.queryParameters?["state"], let redirectUri = url.queryParameters?["redirect_uri"] , let responseType = url.queryParameters?["response_type"], responseType == "id_token" {
+        } else if let url = URL(string: responseUrl), let redirectUri = url.queryParameters?["redirect_uri"] , let responseType = url.queryParameters?["response_type"], responseType == "id_token" {
             let nonce = url.queryParameters?["nonce"]
+        let state = url.queryParameters?["state"]
             let uri = redirectUri.replacingOccurrences(of: "\n", with: "") ?? ""
             let code =  await processAuthorisationRequestUsingIdToken(
                 did: did,
