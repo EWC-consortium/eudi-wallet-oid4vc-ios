@@ -321,14 +321,15 @@ public class IssueService: NSObject, IssueServiceProtocol {
             return WrappedResponse(data: responseUrl, error: nil)
         } else if let url = URL(string: responseUrl), let redirectUri = url.queryParameters?["redirect_uri"] , let responseType = url.queryParameters?["response_type"], responseType == "id_token" {
             let nonce = url.queryParameters?["nonce"]
-        let state = url.queryParameters?["state"]
+            let state = url.queryParameters?["state"]
+            let clientID = url.queryParameters?["client_id"]
             let uri = redirectUri.replacingOccurrences(of: "\n", with: "") ?? ""
             let code =  await processAuthorisationRequestUsingIdToken(
                 did: did,
                 authServerWellKnownConfig: authServer,
                 redirectURI:  uri.trimmingCharacters(in: .whitespaces) ,
                 nonce: nonce ?? "",
-                state: state ?? "")
+                state: state ?? "", clientID: clientID ?? "")
             return WrappedResponse(data: code, error: nil)
         } else if !responseUrl.hasPrefix(redirectURI ?? "") {
             return WrappedResponse(data: responseUrl, error: nil)
@@ -339,12 +340,13 @@ public class IssueService: NSObject, IssueServiceProtocol {
             let nonce = url?.queryParameters?["nonce"]
             let redirectUri = url?.queryParameters?["redirect_uri"]
             let uri = redirectUri?.replacingOccurrences(of: "\n", with: "") ?? ""
+          let clientID = url?.queryParameters?["client_id"]
             let code =  await processAuthorisationRequestUsingIdToken(
                 did: did,
                 authServerWellKnownConfig: authServer,
                 redirectURI:  uri.trimmingCharacters(in: .whitespaces) ,
                 nonce: nonce ?? "",
-                state: state ?? "")
+                state: state ?? "", clientID: clientID ?? "")
             return WrappedResponse(data: code, error: nil)
         }
     }
@@ -355,7 +357,7 @@ public class IssueService: NSObject, IssueServiceProtocol {
         authServerWellKnownConfig: AuthorisationServerWellKnownConfiguration,
         redirectURI: String,
         nonce: String,
-        state: String) async -> String? {
+        state: String, clientID: String) async -> String? {
             
             // Retrieve the authorization endpoint from the server configuration.
             guard let authorizationEndpoint = authServerWellKnownConfig.authorizationEndpoint else { return nil }
@@ -373,7 +375,7 @@ public class IssueService: NSObject, IssueServiceProtocol {
             ([
                 "iss": "\(did)",
                 "sub": "\(did)",
-                "aud": "\(authorizationEndpoint)",
+                "aud": "\(clientID ?? authorizationEndpoint)",
                 "exp": currentTime + 3600,
                 "iat": currentTime,
                 "nonce": "\(nonce)"
