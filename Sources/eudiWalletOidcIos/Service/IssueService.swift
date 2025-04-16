@@ -553,7 +553,7 @@ public class IssueService: NSObject, IssueServiceProtocol {
                         ]
                     ]
                 }
-                if credentialOffer.credentials?[0].trustFramework != nil {
+                if issuerConfig.credentialsSupported?.version == "v1" {
                     params = [
                         "types": credentialTypes,
                         "format": formatT ?? "jwt_vc",

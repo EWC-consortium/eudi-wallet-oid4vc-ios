@@ -54,12 +54,15 @@ public struct TrustFrameworkInIssuer {
 public struct CredentialSupportedObject {
     
     public var dataSharing: [String : DataSharing]?
+    // version is used to identify whether the CredentialSupportedObject is an array or another type
+    public var version: String?
     
     init(from: [String:DataSharingResponse]) {
         
         dataSharing = from.mapValues({
             DataSharing(from: $0)
         })
+        version = "v2"
         
     }
     init(from: [String:DataSharingResponseV2]) {
@@ -67,11 +70,13 @@ public struct CredentialSupportedObject {
         dataSharing = from.mapValues({
             DataSharing(from: $0)
         })
+        version = "v2"
         
     }
     
     init(from: [DataSharingOldFormatResponse]) {
         var ldataSharing = [String:DataSharing]()
+        version = "v1"
         if from.count > 0{
             for item in from{
                 let dataSharingVal = DataSharing(from: item)
