@@ -114,14 +114,14 @@ public class IssueService: NSObject, IssueServiceProtocol {
         } else if credentialOffer?.credentials?[0].trustFramework == nil {
             "[" + (([
                 "type": "openid_credential",
-                "format": "jwt_vc_json",
+                "format": format,
                 "credential_definition": ["type":credentialOffer?.credentials?[0].types ?? []],
                 "locations": [credentialOffer?.credentialIssuer ?? ""]
             ] as [String : Any]).toString() ?? "") + "]"
         } else {
             "[" + (([
                 "type": "openid_credential",
-                "format": "jwt_vc",
+                "format": format,
                 "types": credentialOffer?.credentials?[0].types ?? [],
                 "locations": [credentialOffer?.credentialIssuer ?? ""]
             ] as [String : Any]).toString() ?? "") + "]"
