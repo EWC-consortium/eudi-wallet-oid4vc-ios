@@ -301,6 +301,8 @@ public class IssueService: NSObject, IssueServiceProtocol {
                 responseUrl = location
             } else if httpres?.statusCode ?? 0 >= 400 {
                 return WrappedResponse(data: nil, error: ErrorHandler.processError(data: data))
+            } else if httpres?.statusCode == 200, let contentType = httpres?.value(forHTTPHeaderField: "Content-Type"), contentType.contains("text/html") {
+                responseUrl = authorizationURL.absoluteString
             } else{
                 guard let authorization_response = String.init(data: data, encoding: .utf8) else { return nil }
                 responseUrl = authorization_response
