@@ -78,10 +78,6 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
                         credFormat = key
                     }
                 }
-                if let transactionData = transactionData, !transactionData.isEmpty {
-                    claims["transaction_data_hashes"] = [self.generateHash(input: transactionData)]
-                    claims["transaction_data_hashes_alg"] = "sha-256"
-                }
                 claims["aud"] = clientID
                 claims["nonce"] = nonce
                 let split = item.split(separator: ".")
@@ -89,6 +85,13 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
                 if split.count > 1 {
                     let jsonString = "\(split[1])".decodeBase64() ?? ""
                     dict = UIApplicationUtils.shared.convertStringToDictionary(text: jsonString) ?? [:]
+                }
+                
+                if let transactionDataDecoded = transactionData?.decodeBase64(), !transactionDataDecoded.isEmpty {
+                        if checkTransactionDataWithMultipleInputDescriptors(inputDescriptor: presentationDefinition?.inputDescriptors?[index], transactionDataItem: transactionData) {
+                            claims["transaction_data_hashes"] = [self.generateHash(input: transactionDataDecoded)]
+                            claims["transaction_data_hashes_alg"] = "sha-256"
+                        }
                 }
                 var itemWithTilda: String? = nil
                 if item.hasSuffix("~") {
@@ -235,6 +238,15 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
         }
         
         return (vpTokenList, presentationSubmission, idToken)
+    }
+    
+   func checkTransactionDataWithMultipleInputDescriptors(inputDescriptor: InputDescriptor?,
+                                                          transactionDataItem: String?) -> Bool {
+        let decodedTransactionData = transactionDataItem?.decodeBase64() ?? ""
+        let transactionDataDict = UIApplicationUtils.shared.convertToDictionary(text: decodedTransactionData)
+        let credIdsArray = transactionDataDict?["credential_ids"] as? [String]
+        guard let inputDescriptorId = inputDescriptor?.id else { return false }
+        return credIdsArray?.contains(inputDescriptorId) ?? false
     }
     
     private func fetchFormat(presentationDefinition: PresentationDefinitionModel?, index: Int) -> String {
