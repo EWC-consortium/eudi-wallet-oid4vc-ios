@@ -11,7 +11,7 @@ public struct PresentationDefinitionModel: Codable {
     public let name: String?
     public let purpose: String?
     public let format: [String: JwtVp]?
-    public let inputDescriptors: [InputDescriptor]?
+    public var inputDescriptors: [InputDescriptor]?
     enum CodingKeys: String, CodingKey {
         case id, format, name, purpose
         case inputDescriptors = "input_descriptors"

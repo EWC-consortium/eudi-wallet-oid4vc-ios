@@ -87,9 +87,9 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
                     dict = UIApplicationUtils.shared.convertStringToDictionary(text: jsonString) ?? [:]
                 }
                 
-                if let transactionDataDecoded = transactionData?.decodeBase64(), !transactionDataDecoded.isEmpty {
+                if let transactionData = transactionData, !transactionData.isEmpty {
                         if checkTransactionDataWithMultipleInputDescriptors(inputDescriptor: presentationDefinition?.inputDescriptors?[index], transactionDataItem: transactionData) {
-                            claims["transaction_data_hashes"] = [self.generateHash(input: transactionDataDecoded)]
+                            claims["transaction_data_hashes"] = [self.generateHash(input: transactionData)]
                             claims["transaction_data_hashes_alg"] = "sha-256"
                         }
                 }
