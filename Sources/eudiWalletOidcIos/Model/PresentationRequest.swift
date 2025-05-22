@@ -80,20 +80,24 @@ public struct PresentationRequest: Codable {
     }
 }
 public struct ClientMetaData: Codable {
-    public var clientName, coverUri, description, location, logoUri: String?
+    public var clientName, coverUri, description, location, logoUri, legalPidAttestation, legalPidAttestationPop: String?
     enum CodingKeys: String, CodingKey {
         case clientName = "client_name"
         case coverUri = "cover_uri"
         case description = "description"
         case location = "location"
         case logoUri = "logo_uri"
+        case legalPidAttestation = "legal_pid_attestation"
+        case legalPidAttestationPop = "legal_pid_attestation_pop"
     }
-    public init(clientName: String?, coverUri: String?, description: String?, location: String?, logoUri: String?) {
+    public init(clientName: String?, coverUri: String?, description: String?, location: String?, logoUri: String?, legalPidAttestation: String?, legalPidAttestationPop: String?) {
         self.clientName = clientName
         self.coverUri = coverUri
         self.description = description
         self.location = location
         self.logoUri = logoUri
+        self.legalPidAttestation = legalPidAttestation
+        self.legalPidAttestationPop = legalPidAttestationPop
     }
     
     public init(from decoder: Decoder) throws {
@@ -103,6 +107,8 @@ public struct ClientMetaData: Codable {
         description = try container.decodeIfPresent(String.self, forKey: .description)
         location = try container.decodeIfPresent(String.self, forKey: .location)
         logoUri = try container.decodeIfPresent(String.self, forKey: .logoUri)
+        legalPidAttestation = try container.decodeIfPresent(String.self, forKey: .legalPidAttestation)
+        legalPidAttestationPop = try container.decodeIfPresent(String.self, forKey: .legalPidAttestationPop)
     }
     
 }

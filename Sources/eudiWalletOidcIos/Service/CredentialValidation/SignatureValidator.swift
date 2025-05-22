@@ -10,7 +10,7 @@ import Base58Swift
 import Security
 import CryptoKit
 
-class SignatureValidator {
+public class SignatureValidator {
     
     static func validateSign(jwt: String?, jwksURI: String?, format: String) async throws-> Bool? {
         var jwk: [String: Any] = [:]
@@ -68,7 +68,7 @@ class SignatureValidator {
         }
     }
     
-    static private func validateSignature(jwt: String?, jwk: [Any]) -> (Bool?, Bool) {
+    static public func validateSignature(jwt: String?, jwk: [Any]) -> (Bool?, Bool) {
         var validationResults: [Bool] = []
         var isX5cSigNotValid: Bool = false
         for data in jwk {

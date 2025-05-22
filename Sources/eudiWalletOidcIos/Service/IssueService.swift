@@ -754,7 +754,12 @@ public class IssueService: NSObject, IssueServiceProtocol {
                     ErrorHandler.processError(data: data)
                     return TokenResponse(error: ErrorHandler.processError(data: data))
                 } else {
-                    let model = try jsonDecoder.decode(TokenResponse.self, from: data)
+                    let dataResponse = response as? HTTPURLResponse
+                    let lpid = dataResponse?.value(forHTTPHeaderField: "legal-pid-attestation")
+                    let lpidPop = dataResponse?.value(forHTTPHeaderField: "legal-pid-attestation-pop")
+                    var model = try jsonDecoder.decode(TokenResponse.self, from: data)
+                    model.lpid = lpid
+                    model.lpidPop = lpidPop
                     return model
                 }
             } catch {
@@ -817,7 +822,11 @@ public class IssueService: NSObject, IssueServiceProtocol {
                     let error = EUDIError(from: ErrorResponse(message: dataString))
                     return TokenResponse(error: ErrorHandler.processError(data: data))
                 } else {
-                    let model = try jsonDecoder.decode(TokenResponse.self, from: data)
+                    var model = try jsonDecoder.decode(TokenResponse.self, from: data)
+                    let lpid = httpsResponse?.value(forHTTPHeaderField: "legal-pid-attestation")
+                    let lpidPop = httpsResponse?.value(forHTTPHeaderField: "legal-pid-attestation-pop")
+                    model.lpid = lpid
+                    model.lpidPop = lpidPop
                     return model
                 }
             } catch {

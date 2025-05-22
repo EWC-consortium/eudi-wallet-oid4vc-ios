@@ -16,6 +16,8 @@ public struct TokenResponse: Codable {
     public var scope: String?
     public var error: EUDIError? // Optional error property
     public var refreshToken: String?
+    public var lpid: String?
+    public var lpidPop: String?
     enum CodingKeys: String, CodingKey {
         case accessToken = "access_token"
         case tokenType = "token_type"
