@@ -80,7 +80,12 @@ public struct CredentialSupportedObject {
         if from.count > 0{
             for item in from{
                 let dataSharingVal = DataSharing(from: item)
-                if let key = dataSharingVal.types?.last{
+                if dataSharingVal.format == "mso_mdoc" {
+                    if let key = dataSharingVal.docType{
+                        ldataSharing[key] = dataSharingVal
+                    }
+                }
+                else if let key = dataSharingVal.types?.last{
                     ldataSharing[key] = dataSharingVal
                 }
             }
@@ -147,6 +152,7 @@ public struct DataSharing {
     init(from: DataSharingOldFormatResponse) {
         format = from.format
         types = from.types
+    docType = from.docType
         trustFramework = from.trustFramework == nil ? nil : TrustFramework(from: from.trustFramework!)
         if let dataSharingDisplayList = from.display, dataSharingDisplayList.count > 0{
             display = dataSharingDisplayList.map({ Display(from: $0)})

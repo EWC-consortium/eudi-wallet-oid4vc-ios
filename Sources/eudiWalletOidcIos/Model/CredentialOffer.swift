@@ -60,12 +60,14 @@ public struct CredentialOffer {
 public struct Credential {
     public let format: String?
     public let types: [String]?
+    public let doctype: String?
     public let trustFramework: TrustFramework?
     public var credentialDefinition: CredentialDefinition?
     
     init(from: CredentialDataResponse) {
         format = from.format
         types = from.types
+        doctype = from.doctype
         trustFramework = from.trustFramework == nil ? nil : TrustFramework(from: from.trustFramework!)
         credentialDefinition = from.credentialDefinition == nil ? nil : CredentialDefinition(from: from.credentialDefinition!)
     }
@@ -75,6 +77,7 @@ public struct Credential {
         format = nil
         trustFramework = nil
         credentialDefinition = nil
+        doctype = nil
     }
 }
 // MARK: - CredentialDefinition

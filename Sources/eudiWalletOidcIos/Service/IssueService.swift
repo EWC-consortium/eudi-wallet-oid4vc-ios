@@ -519,7 +519,7 @@ public class IssueService: NSObject, IssueServiceProtocol {
             
             guard let idToken = await ProofService.generateProof(nonce: nonce, credentialOffer: credentialOffer, issuerConfig: issuerConfig, did: did, keyHandler: keyHandler) else {return nil}
             
-            let credentialTypes = credentialOffer.credentials?[0].types ?? []
+            let credentialTypes = getTypesFromCredentialOffer(credentialOffer: credentialOffer) ?? []
             let types = getTypesFromIssuerConfig(issuerConfig: issuerConfig, type: credentialTypes.last ?? "")
             let formatT = getFormatFromIssuerConfig(issuerConfig: issuerConfig, type: credentialTypes.last)
             let doctType = getDocTypeFromIssuerConfig(issuerConfig: issuerConfig, type: credentialTypes.last)
@@ -864,6 +864,8 @@ public class IssueService: NSObject, IssueServiceProtocol {
         
         if let types = credentialOffer.credentials?[0].types {
             return types
+        } else if credentialOffer.credentials?[0].format == "mso_mdoc", let doctype = credentialOffer.credentials?[0].doctype {
+            return [doctype]
         } else {
             return nil
         }

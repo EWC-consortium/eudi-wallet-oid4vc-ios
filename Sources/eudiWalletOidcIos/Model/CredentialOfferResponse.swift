@@ -44,6 +44,7 @@ public struct CredentialOfferResponse: Codable {
 struct CredentialDataResponse: Codable {
     let format: String?
     let types: [String]?
+    let doctype: String?
     let trustFramework: TrustFrameworkResponse?
     var credentialDefinition: CredentialDefinitionResponse?
     
@@ -51,6 +52,7 @@ struct CredentialDataResponse: Codable {
         case format, types
         case trustFramework = "trust_framework"
         case credentialDefinition
+        case doctype
     }
 }
 

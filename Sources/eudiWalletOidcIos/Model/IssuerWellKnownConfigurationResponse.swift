@@ -122,11 +122,13 @@ struct DataSharingOldFormatResponse: Codable {
     var types: [String]?
     var trustFramework: TrustFrameworkResponse?
     var display: [DisplayResponse]?
+    var docType: String?
     
     enum CodingKeys: String, CodingKey {
         case format, types
         case trustFramework = "trust_framework"
         case display
+        case docType = "doctype"
     }
 }
 
