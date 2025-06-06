@@ -185,7 +185,7 @@ public struct DisplayCover: Codable {
 }
 public struct IssuerWellKnownConfiguration {
     public let credentialIssuer: String?
-    public let authorizationServer: String?
+    public let authorizationServer: [String]?
     public let credentialEndpoint: String?
     public let deferredCredentialEndpoint: String?
     public let display: [Display]?
@@ -195,7 +195,13 @@ public struct IssuerWellKnownConfiguration {
     
     public init(from: IssuerWellKnownConfigurationResponse) {
         credentialIssuer = from.credentialIssuer
-        authorizationServer = from.authorizationServer ?? from.authorizationServers?[0] ?? ""
+        var authServerArray: [String] = []
+        if  from.authorizationServer == nil {
+            authServerArray = from.authorizationServers ?? []
+        } else {
+            authServerArray = [from.authorizationServer ?? ""]
+        }
+        authorizationServer = authServerArray
         credentialEndpoint = from.credentialEndpoint
         deferredCredentialEndpoint = from.deferredCredentialEndpoint
         
@@ -219,7 +225,13 @@ public struct IssuerWellKnownConfiguration {
     }
 public init(from: IssuerWellKnownConfigurationResponseV2) {
         credentialIssuer = from.credentialIssuer
-        authorizationServer = from.authorizationServer ?? from.authorizationServers?[0] ?? ""
+    var authServerArray: [String] = []
+    if  from.authorizationServer == nil {
+        authServerArray = from.authorizationServers ?? []
+    } else {
+        authServerArray = [from.authorizationServer ?? ""]
+    }
+    authorizationServer = authServerArray
         credentialEndpoint = from.credentialEndpoint
         deferredCredentialEndpoint = from.deferredCredentialEndpoint
         
