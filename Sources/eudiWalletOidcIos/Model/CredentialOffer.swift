@@ -38,7 +38,10 @@ public struct CredentialOffer {
         
         if let credentialList = from.credentialConfigurationIds, credentialList.count > 0{
             if let strCredentialList = credentialList as? [String]{
-                credentials = [Credential(fromTypes: strCredentialList)]
+                credentials = []
+                for credential in strCredentialList {
+                    credentials?.append(Credential(fromType: credential))
+                }
             } else if let objCredentialList = credentialList as? [CredentialDataResponse]{
                 credentials = credentialList.map({
                     let obj = $0 as! CredentialDataResponse
@@ -79,6 +82,15 @@ public struct Credential {
         credentialDefinition = nil
         doctype = nil
     }
+    
+    init(fromType: String) {
+        types = [fromType]
+        format = nil
+        trustFramework = nil
+        credentialDefinition = nil
+        doctype = nil
+    }
+    
 }
 // MARK: - CredentialDefinition
 public struct CredentialDefinition {

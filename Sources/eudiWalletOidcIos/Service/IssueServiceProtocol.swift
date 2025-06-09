@@ -52,7 +52,7 @@ protocol IssueServiceProtocol {
      - accessToken: The access token for authentication.
      - Returns: A `CredentialResponse` object if the request is successful, otherwise `nil`.
      */
-    func processCredentialRequest(did: String, nonce: String, credentialOffer: CredentialOffer, issuerConfig: IssuerWellKnownConfiguration, accessToken: String, format: String) async -> CredentialResponse?
+    func processCredentialRequest(did: String, nonce: String, credentialOffer: CredentialOffer, issuerConfig: IssuerWellKnownConfiguration, accessToken: String, format: String, credentialTypes: [String], tokenResponse: TokenResponse?, authDetails: AuthorizationDetails?) async -> CredentialResponse?
     
     // Processes a deferred credential request to obtain the credential response in deffered manner.
     /** - Parameters

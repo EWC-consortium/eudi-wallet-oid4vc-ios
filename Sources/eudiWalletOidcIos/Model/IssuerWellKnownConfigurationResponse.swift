@@ -198,6 +198,7 @@ public struct IssuerWellKnownConfigurationResponse: Codable {
     let display: [AnyObject]?
     let credentialsSupported: [AnyObject]?
     public let notificationEndPoint: String?
+    let nonceEndpoint: String?
     
     enum CodingKeys: String, CodingKey {
         case credentialIssuer = "credential_issuer"
@@ -208,6 +209,7 @@ public struct IssuerWellKnownConfigurationResponse: Codable {
         case display = "display"
         case credentialsSupported = "credentials_supported"
         case notificationEndPoint = "notification_endpoint"
+        case nonsceEndpoint = "nonce_endpoint"
     }
     
     public func encode(to encoder: Encoder) throws {
@@ -238,5 +240,6 @@ public struct IssuerWellKnownConfigurationResponse: Codable {
             display = []
         }
         notificationEndPoint = try? container.decode(String.self, forKey: .notificationEndPoint)
+        nonceEndpoint = try? container.decode(String.self, forKey: .nonsceEndpoint)
     }
 }

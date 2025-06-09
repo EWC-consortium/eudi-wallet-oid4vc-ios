@@ -18,6 +18,7 @@ public struct TokenResponse: Codable {
     public var refreshToken: String?
     public var lpid: String?
     public var lpidPop: String?
+    public var authorizationDetails: [AuthorizationDetails]?
     enum CodingKeys: String, CodingKey {
         case accessToken = "access_token"
         case tokenType = "token_type"
@@ -27,10 +28,25 @@ public struct TokenResponse: Codable {
         case cNonceExpiresIn = "c_nonce_expires_in"
         case scope = "scope"
         case refreshToken = "refresh_token"
+        case authorizationDetails = "authorization_details"
     }
+    
+    
     // Initializer to handle the case when an error occurs
 //    init(error: error) {
 //        self.error = error
 //        // Other properties will be nil by default
 //    }
+}
+
+public struct AuthorizationDetails : Codable {
+    public var type: String?
+    public var credentialConfigId: String?
+    public var credentialIdentifiers: [String]?
+    
+    enum CodingKeys: String, CodingKey {
+        case type = "type"
+        case credentialConfigId = "credential_configuration_id"
+        case credentialIdentifiers = "credential_identifiers"
+    }
 }

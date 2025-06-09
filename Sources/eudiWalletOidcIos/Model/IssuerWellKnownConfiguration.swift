@@ -192,6 +192,7 @@ public struct IssuerWellKnownConfiguration {
     public let credentialsSupported: CredentialSupportedObject?
     public let error: EUDIError?
     public let notificationEndPoint: String?
+    public let nonceEndPoint: String?
     
     public init(from: IssuerWellKnownConfigurationResponse) {
         credentialIssuer = from.credentialIssuer
@@ -220,6 +221,7 @@ public struct IssuerWellKnownConfiguration {
             credentialsSupported = nil
         }
         notificationEndPoint = from.notificationEndPoint
+        nonceEndPoint = from.nonceEndpoint
         error = nil
   
     }
@@ -251,7 +253,8 @@ public init(from: IssuerWellKnownConfigurationResponseV2) {
         }
         
         error = nil
-    notificationEndPoint = from.notificationEndPoint
+        notificationEndPoint = from.notificationEndPoint
+        nonceEndPoint = from.nonceEndpoint
     }
     
     public init(mCredentialIssuer: String?,
@@ -267,6 +270,7 @@ public init(from: IssuerWellKnownConfigurationResponseV2) {
         credentialsSupported = nil
         error = nil
         notificationEndPoint = nil
+        nonceEndPoint = nil
     }
     
     init(from: EUDIError) {
@@ -278,5 +282,6 @@ public init(from: IssuerWellKnownConfigurationResponseV2) {
         display = nil
         credentialsSupported = nil
         notificationEndPoint = nil
+        nonceEndPoint = nil
     }
 }

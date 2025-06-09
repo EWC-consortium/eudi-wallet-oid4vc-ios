@@ -131,33 +131,46 @@ public class IssueService: NSObject, IssueServiceProtocol {
     }
     
     func buildAuthorizationRequestV2(credentialOffer: CredentialOffer?, docType: String, format: String, issuerConfig: IssuerWellKnownConfiguration?) -> String {
-            let credentialConfigID = credentialOffer?.credentials?.first?.types?.first ?? nil
-            var authorizationDetails =  if format == "mso_mdoc" {
-                "[" + (([
+        var authorizationDetails: [String] = []
+        
+        guard let credentials = credentialOffer?.credentials else { return ""}
+        authorizationDetails.removeAll()
+        for (index, _) in credentials.enumerated()  {
+            let credFormat = getFormatFromIssuerConfig(issuerConfig: issuerConfig, type: credentials[index].types?.first) ?? ""
+            let credDocType = getDocTypeFromIssuerConfig(issuerConfig: issuerConfig, type: credentials[index].types?.first)
+            let credentialConfigID = credentials[index].types?.first ?? nil
+//            if credFormat == "mso_mdoc" {
+//                let authDetail = (([
+//                    "type": "openid_credential",
+//                    "doctype": credDocType,
+//                    "credential_configuration_id": credentialConfigID,
+//                    "locations": [credentialOffer?.credentialIssuer ?? ""]
+//
+//                ] as [String : Any]).toString() ?? "")
+//                authorizationDetails.append(authDetail)
+//            } else if credFormat.contains("sd-jwt"){
+//                let authDetail =  (([
+//                    "type": "openid_credential",
+//                    "format": format,
+//                    "vct": getTypesFromIssuerConfig(issuerConfig: issuerConfig, type: credentialConfigID)
+//                ] as [String : Any]).toString() ?? "")
+//                authorizationDetails.append(authDetail)
+//            } else {
+                let authDetail =  (([
                     "type": "openid_credential",
-                    "doctype": docType,
-                    "credential_configuration_id": credentialConfigID,
-                    "locations": [credentialOffer?.credentialIssuer ?? ""]
-                    
-                ] as [String : Any]).toString() ?? "") + "]"
-            } else if format.contains("sd-jwt"){
-                "[" + (([
-                    "type": "openid_credential",
-                    "format": format,
-                    "vct": getTypesFromIssuerConfig(issuerConfig: issuerConfig, type: credentialConfigID)
-                ] as [String : Any]).toString() ?? "") + "]"
-            }
-            else {
-                "[" + (([
-                    "type": "openid_credential",
-                    "credential_configuration_id": credentialConfigID,
-                    "credential_definition": ["type": getTypesFromIssuerConfig(issuerConfig: issuerConfig, type: credentialConfigID)]
-                ] as [String : Any]).toString() ?? "") + "]"
-            }
-            
-            return authorizationDetails
+                    "credential_configuration_id": credentialConfigID
+                ] as [String : Any]).toString() ?? "")
+                authorizationDetails.append(authDetail)
+//            }
         }
-    
+        var authDetailsString = ""
+        for detail in authorizationDetails {
+            authDetailsString += ",\(detail)"
+        }
+        authDetailsString.removeFirst()
+        let authorizationDetailString = "[\(authDetailsString)]"
+        return authorizationDetailString
+    }
     
     private func buildAuthorizationRequest(credentialOffer: CredentialOffer?, docType: String, format: String, issuerConfig: IssuerWellKnownConfiguration?) -> String {
         if credentialOffer?.version == "v1" {
@@ -508,7 +521,8 @@ public class IssueService: NSObject, IssueServiceProtocol {
         credentialOffer: CredentialOffer,
         issuerConfig: IssuerWellKnownConfiguration,
         accessToken: String,
-        format: String) async -> CredentialResponse? {
+        format: String,
+        credentialTypes: [String], tokenResponse: TokenResponse? = nil, authDetails: AuthorizationDetails? = nil) async -> CredentialResponse? {
             
             let jsonDecoder = JSONDecoder()
             guard let url = URL(string: issuerConfig.credentialEndpoint ?? "") else { return nil }
@@ -519,12 +533,29 @@ public class IssueService: NSObject, IssueServiceProtocol {
             
             guard let idToken = await ProofService.generateProof(nonce: nonce, credentialOffer: credentialOffer, issuerConfig: issuerConfig, did: did, keyHandler: keyHandler) else {return nil}
             
-            let credentialTypes = getTypesFromCredentialOffer(credentialOffer: credentialOffer) ?? []
+            //let credentialTypes = getTypesFromCredentialOffer(credentialOffer: credentialOffer) ?? []
             let types = getTypesFromIssuerConfig(issuerConfig: issuerConfig, type: credentialTypes.last ?? "")
             let formatT = getFormatFromIssuerConfig(issuerConfig: issuerConfig, type: credentialTypes.last)
             let doctType = getDocTypeFromIssuerConfig(issuerConfig: issuerConfig, type: credentialTypes.last)
             var params: [String: Any] = [:]
-            if formatT == "mso_mdoc" {
+            if authDetails != nil && authDetails?.type == "openid_credential" && authDetails?.credentialIdentifiers != nil {
+                params = [
+                    "credential_identifier": authDetails?.credentialIdentifiers?.first,
+                    "proof": [
+                        "proof_type": "jwt",
+                        "jwt": idToken
+                    ]
+                ]
+            }  else if tokenResponse?.cNonce == nil && authDetails == nil && issuerConfig.nonceEndPoint != nil {
+        params = [
+                    "credential_configuration_id": credentialTypes.first,
+                    "proof": [
+                        "proof_type": "jwt",
+                        "jwt": idToken
+                    ]
+                ]
+        
+    } else if formatT == "mso_mdoc" {
                 params = [
                     "doctype": doctType,
                     "format": formatT,

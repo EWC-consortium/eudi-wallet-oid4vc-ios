@@ -14,6 +14,7 @@ public struct CredentialResponse {
     public var credentialOffer: CredentialOffer?
     public var error: EUDIError?
     public var notificationID: String?
+    public var credentials: [CredentialItem]?
     
     
     public init(from: CredentialResponseV1) {
@@ -27,6 +28,7 @@ public struct CredentialResponse {
         credentialOffer = from.credentialOffer
         error = from.error
         notificationID = from.notificationID
+        credentials = from.credentials
     }
     
     
@@ -41,9 +43,15 @@ public struct CredentialResponse {
         credentialOffer = from.credentialOffer
         error = from.error
         notificationID = from.notificationID
+        credentials = from.credentials
     }
     
     public init(fromError: EUDIError) {
         error = fromError
     }
+}
+
+
+public struct CredentialItem: Codable {
+    public let credential: String?
 }
