@@ -8,5 +8,5 @@
 import Foundation
 
 protocol NonceServiceProtocol {
-    func fetchNonceEndpoint(accessToken: String?, nonceEndPoint: String?) async -> String
+    func fetchNonceEndpoint(accessToken: String?, nonceEndPoint: String?) async -> String?
 }

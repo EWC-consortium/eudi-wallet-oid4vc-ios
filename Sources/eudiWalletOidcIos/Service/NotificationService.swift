@@ -14,7 +14,7 @@ public class NotificationService {
         var params: [String: Any] = [:]
         params = ["notification_id": notificationID, "event": event]
         request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue( "Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         let requestBodyData = try? JSONSerialization.data(withJSONObject: params)
         request.httpBody =  requestBodyData
