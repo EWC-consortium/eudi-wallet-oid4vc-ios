@@ -1,6 +1,6 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by oem on 05/07/24.
 //
@@ -38,7 +38,10 @@ class ErrorHandler {
                     errorResponse = EUDIError(from: ErrorResponse(message:error, code: -1))
                 } else if let error = jsonObject["detail"] as? String {
                     errorResponse = EUDIError(from: ErrorResponse(message:error, code: -1))
-                }  else {
+                } else if let error = jsonObject["detail"] as? [String: Any] {
+                    let errorDetail = error["error_description"] as? String
+                    errorResponse = EUDIError(from: ErrorResponse(message:errorDetail, code: -1))
+                } else {
                     errorResponse = EUDIError(from: ErrorResponse(message:"Unexpected error. Please try again.", code: -1))
                 }
             } else {
