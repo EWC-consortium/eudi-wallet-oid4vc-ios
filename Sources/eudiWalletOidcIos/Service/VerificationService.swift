@@ -339,6 +339,7 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
                 var presentationDefinitionUri = URL(string: code)?.queryParameters?["presentation_definition_uri"] ?? ""
                 var clientMetaDataUri = URL(string: code)?.queryParameters?["client_metadata_uri"] ?? ""
                 var clientIDScheme = URL(string: code)?.queryParameters?["client_id_scheme"] ?? ""
+                var request = URL(string: code)?.queryParameters?["request"] ?? ""
                 
                 if presentationDefinition != "" || presentationDefinitionUri != "" {
                     var presentationRequest =  PresentationRequest(state: state,
@@ -352,7 +353,7 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
                                                                    requestUri: requestUri,
                                                                    presentationDefinition: presentationDefinition,
                                                                    clientMetaData: clientMetaData,
-                                                                   presentationDefinitionUri: presentationDefinitionUri, clientMetaDataUri: clientMetaDataUri, clientIDScheme: clientIDScheme, transactionData: [""]
+                                                                   presentationDefinitionUri: presentationDefinitionUri, clientMetaDataUri: clientMetaDataUri, clientIDScheme: clientIDScheme, transactionData: [""], request: request
                     )
                     if presentationDefinition == "" && presentationDefinitionUri != "" {
                         let presentationDefinitionFromUri = await resolvePresentationDefinitionFromURI(url: presentationDefinitionUri)
@@ -384,7 +385,14 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
                                     if segments.count == 3 {
                                         guard let jsonPayload = try? jwtString.decodeJWT(jwtToken: jwtString) else { return (nil, nil) }
                                         guard let data = try? JSONSerialization.data(withJSONObject: jsonPayload, options: []) else { return (nil, nil) }
-                                        let model = try jsonDecoder.decode(PresentationRequest.self, from: data)
+                                        var model = try jsonDecoder.decode(PresentationRequest.self, from: data)
+                                        let requestData = model.request
+                                        if model.request == nil {
+                                            model.request = jwtString
+                                        } else {
+                                            model.request = requestData
+                                        }
+                                       // model.request = model.request != nil ? model.request : jwtString
                                         return validatePresentationRequest(model: model, jwtString: jwtString)
                                     }
                                 } catch {
@@ -1158,7 +1166,7 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
         return (index, uri)
     }
     
-    func getIssuerAuth(credential: String) -> CBOR? {
+    public func getIssuerAuth(credential: String) -> CBOR? {
         if let data = Data(base64URLEncoded: credential) {
             do {
                 let decodedCBOR = try CBOR.decode([UInt8](data))

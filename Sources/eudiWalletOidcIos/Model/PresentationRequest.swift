@@ -13,6 +13,7 @@ public struct PresentationRequest: Codable {
     public var presentationDefinitionUri: String?
     public var clientMetaDataUri: String?
     public var transactionData: [String]?
+    public var request: String?
     enum CodingKeys: String, CodingKey {
         case state = "state"
         case clientId = "client_id"
@@ -29,8 +30,9 @@ public struct PresentationRequest: Codable {
         case presentationDefinitionUri = "presentation_definition_uri"
         case clientMetaDataUri = "client_metadata_uri"
         case transactionData = "transaction_data"
+        case request = "request"
     }
-    public init(state: String?, clientId: String?, redirectUri: String?, responseUri: String?, responseType: String?, responseMode: String?, scope: String?, nonce: String?, requestUri: String?, presentationDefinition: String?, clientMetaData:  String?, presentationDefinitionUri: String?, clientMetaDataUri: String?, clientIDScheme: String?, transactionData: [String]) {
+    public init(state: String?, clientId: String?, redirectUri: String?, responseUri: String?, responseType: String?, responseMode: String?, scope: String?, nonce: String?, requestUri: String?, presentationDefinition: String?, clientMetaData:  String?, presentationDefinitionUri: String?, clientMetaDataUri: String?, clientIDScheme: String?, transactionData: [String], request: String?) {
         self.state = state
         self.clientId = clientId
         self.redirectUri = redirectUri
@@ -46,6 +48,7 @@ public struct PresentationRequest: Codable {
         self.clientMetaDataUri = clientMetaDataUri
         self.clientIDScheme = clientIDScheme
         self.transactionData = transactionData
+        self.request = request
     }
     
     public init(from decoder: Decoder) throws {
@@ -74,6 +77,7 @@ public struct PresentationRequest: Codable {
         presentationDefinitionUri = try container.decodeIfPresent(String.self, forKey: .presentationDefinitionUri)
         clientMetaDataUri = try container.decodeIfPresent(String.self, forKey: .clientMetaDataUri)
         transactionData = try container.decodeIfPresent([String].self, forKey: .transactionData)
+        request = try container.decodeIfPresent(String.self, forKey: .request)
 //        if let transactionDataModel = try? container.decode(TransactionData.self, forKey: .transactionData) {
 //            transactionData = transactionDataModel.toJSONString()
 //        }
