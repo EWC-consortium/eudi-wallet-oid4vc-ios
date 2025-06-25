@@ -42,31 +42,32 @@ public class TrustMechanismService: TrustMechanismServiceProtocol {
             
         }
     }
-    
-    public func fetchTrustDetails(url: String?, x5c: String?, completion: @escaping (TrustServiceProvider?) -> Void){
-        var trustListItem: TrustServiceProvider? = nil
-        parseXmlDataToJson(url: url) { data in
-            if let data = data {
-                for item in data.trustServiceProviders ?? [] {
-                    for value in item.tspServices.first?.serviceDigitalIdentities ?? [] {
-                        if value.x509Certificate == x5c {
-                            trustListItem = item
-                        } else if value.x509SKI == x5c {
-                            trustListItem = item
-                        }
-                    }
-                }
-                if trustListItem != nil {
-                    completion(trustListItem)
-                } else {
-                    completion(nil)
-                }
-            } else {
-                completion(nil)
-            }
-            
+
+public func fetchTrustDetails(url: String?, x5c: String?, completion: @escaping (TrustServiceProvider?) -> Void) {
+    parseXmlDataToJson(url: url) { data in
+        guard let data = data else {
+            completion(nil)
+            return
         }
+
+        for item in data.trustServiceProviders ?? [] {
+            for service in item.tspServices {
+                let hasMatchingId = service.serviceDigitalIdentities?.contains {
+                    $0.x509Certificate == x5c || $0.x509SKI == x5c
+                } ?? false
+
+                if hasMatchingId {
+                    var matchedTSP = item
+                    matchedTSP.tspServices = [service]
+                    completion(matchedTSP)
+                    return
+                }
+            }
+        }
+
+        completion(nil)
     }
+}
     
     public func parseXmlDataToJson(url: String?, completion: @escaping (TrustServiceStatusList?) -> Void) {
         let url = URL(string: "https://ewc-consortium.github.io/ewc-trust-list/EWC-TL")!

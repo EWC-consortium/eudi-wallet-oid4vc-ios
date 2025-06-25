@@ -125,6 +125,8 @@ public class XMLToJSONParser: NSObject, XMLParserDelegate {
                 tspServices: []
             )
         case "TSPService":
+            break
+        case "ServiceInformation":
             currentService = TSPService(
                 serviceTypeIdentifier: "",
                 serviceName: "",
@@ -263,7 +265,7 @@ public class XMLToJSONParser: NSObject, XMLParserDelegate {
         case "ServiceSupplyPoint":
             currentService?.serviceSupplyPoints?.append(currentText)
             
-        case "TSPService":
+        case "ServiceInformation":
             if let service = currentService {
                 currentTSP?.tspServices.append(service)
             }
