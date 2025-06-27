@@ -16,7 +16,7 @@ public class NonceService: NonceServiceProtocol {
         guard let url = URL(string: nonceEndPoint ?? "") else { return nil }
         
         var request = URLRequest(url: url)
-        request.setValue( "Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue( "Bearer \(accessToken ?? "")", forHTTPHeaderField: "Authorization")
         request.httpMethod = "POST"
         
         do {
