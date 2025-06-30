@@ -29,7 +29,7 @@ class SecureEnclave {
         if let headerParams = JWSHeader(header){
             let payload = Payload(message.data(using: .utf8)!)
 
-            guard let signer = Signer(signingAlgorithm: .ES256, privateKey: keyPair.privateKey) else {
+            guard let signer = Signer(signatureAlgorithm: .ES256, key: keyPair.privateKey) else {
                 throw SecureEnclaveError.couldNotCreateSigner
             }
 
@@ -40,7 +40,7 @@ class SecureEnclave {
     }
 
     func verify(_ compactSerialization: String) throws -> Bool {
-        guard let verifier = Verifier(verifyingAlgorithm: .ES256, publicKey: keyPair.publicKey) else {
+        guard let verifier = Verifier(signatureAlgorithm: .ES256, key: keyPair.publicKey) else {
             throw SecureEnclaveError.couldNotCreateVerifier
         }
 

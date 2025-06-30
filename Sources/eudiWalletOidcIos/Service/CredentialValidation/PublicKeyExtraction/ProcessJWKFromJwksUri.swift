@@ -14,7 +14,7 @@ class ProcessJWKFromJwksUri {
         return await fetchJwkData(kid: kid, jwksUri: jwksURI)
     }
     
-    static func fetchJwkData(kid: String?, jwksUri: String)async -> [String: Any] {
+    static func fetchJwkData(kid: String?, jwksUri: String, keyUse: String? = "sig")async -> [String: Any] {
         guard let url = URL(string: jwksUri) else {
             return [:]
         }
@@ -23,7 +23,7 @@ class ProcessJWKFromJwksUri {
             guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else { return [:]}
             guard let jsonObject = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any], let keys = jsonObject["keys"] as? [[String: Any]] else { return [:]}
             
-            var jwkKey: [String: Any]? = keys.first { $0["use"] as? String == "sig" }
+            var jwkKey: [String: Any]? = keys.first { $0["use"] as? String == keyUse }
             
             if jwkKey == nil, let kid = kid {
                 jwkKey = keys.first { $0["kid"] as? String == kid }

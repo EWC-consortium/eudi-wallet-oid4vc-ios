@@ -50,7 +50,7 @@ class IETFCredentialRevocationService: CredentialRevocationServiceProtocol {
         } else {
             var verificationHandler : eudiWalletOidcIos.VerificationService?
             verificationHandler = eudiWalletOidcIos.VerificationService(keyhandler: keyHandler)
-            guard let issuerAuth = verificationHandler?.getIssuerAuth(credential: jwt) else { return (nil, nil)}
+            guard let issuerAuth = MDocVpTokenBuilder().getIssuerAuth(credential: jwt) else { return (nil, nil)}
             let index = verificationHandler?.getStatusListItemsFromCbor(cborData: issuerAuth).0
             let uri = verificationHandler?.getStatusListItemsFromCbor(cborData: issuerAuth).1
             return (uri, index)

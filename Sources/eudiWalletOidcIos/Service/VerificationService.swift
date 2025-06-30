@@ -33,293 +33,26 @@ public class VerificationService: NSObject, VerificationServiceProtocol {
         credentialsList: [String]?,
         wua: String,
         pop: String) async -> WrappedVerificationResponse? {
-                
-                guard let secureData = keyHandler.generateSecureKey() else { return nil }
-        // let jwk = keyHandler.getJWK(publicKey: secureData.publicKey)
-                let jwk = generateJWKFromPrivateKey(secureKey: secureData, did: did)
-                
-                // Generate JWT header
-                let header = generateJWTHeader(jwk: jwk, did: did)
-                
-            var transactionData: String? = nil
-            if !(presentationRequest?.transactionData?.isEmpty ?? true) {
-                transactionData = presentationRequest?.transactionData?.first
-            }
-                // Generate JWT payload
-                let payload = await generateJWTPayload(did: did, nonce: presentationRequest?.nonce ?? UUID().uuidString, credentialsList: credentialsList ?? [], state: presentationRequest?.state ?? "", clientID: presentationRequest?.clientId ?? "",transactionData: transactionData)
-                debugPrint("payload:\(payload)")
-                var presentationDefinition :PresentationDefinitionModel? = nil
-                do {
-                    presentationDefinition = try VerificationService.processPresentationDefinition(presentationRequest?.presentationDefinition)
-                } catch {
-                    presentationDefinition = nil
-                }
-            var token = await createVPTokenAndPresentationSubmission(credentialsList: credentialsList, clientID: presentationRequest?.clientId ?? "", transactionData: transactionData, did: did, nonce: presentationRequest?.nonce ?? UUID().uuidString, jwtHeader: header, presentationRequest: presentationRequest, presentationDefinition: presentationDefinition)
-                guard let redirectURL = presentationRequest?.redirectUri else {return nil}
-                return await sendVPRequest(vpToken: token.0, idToken: token.2, presentationSubmission: token.1 ?? nil, redirectURI: presentationRequest?.redirectUri ?? "", state: presentationRequest?.state ?? "", responseType: presentationRequest?.responseType ?? "", wua: wua, pop: pop)
-            }
-
-
-func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID: String, transactionData: String? = nil, did: String, nonce: String, jwtHeader: String, presentationRequest: PresentationRequest?, presentationDefinition: PresentationDefinitionModel?) async -> ([String], PresentationSubmissionModel?, String){
-        var jwtList: [String] = []
-        var vpTokenList: [String] = []
-        var mdocList: [String] = []
-        var firstJWTProcessedIndex: Int? = nil
-        var mdocProcessedIndex: Int? = nil
-        var idToken: String = ""
-        var presentationSubmission: PresentationSubmissionModel? = nil
-        guard let credentialsList = credentialsList else { return ([], nil, "")}
-        if let resType = presentationRequest?.responseType, resType.contains("vp_token") {
-            for (index, item) in credentialsList.enumerated() {
-                var claims: [String: Any] = [:]
-                var credFormat: String? = ""
-                if let format = presentationDefinition?.inputDescriptors?[index].format ??  presentationDefinition?.format {
-                    for (key, _) in format {
-                        credFormat = key
-                    }
-                }
-                claims["aud"] = clientID
-                claims["nonce"] = nonce
-                let split = item.split(separator: ".")
-                var dict: [String: Any] = [:]
-                if split.count > 1 {
-                    let jsonString = "\(split[1])".decodeBase64() ?? ""
-                    dict = UIApplicationUtils.shared.convertStringToDictionary(text: jsonString) ?? [:]
-                }
-                
-                if let transactionData = transactionData, !transactionData.isEmpty {
-                        if checkTransactionDataWithMultipleInputDescriptors(inputDescriptor: presentationDefinition?.inputDescriptors?[index], transactionDataItem: transactionData) {
-                            claims["transaction_data_hashes"] = [self.generateHash(input: transactionData)]
-                            claims["transaction_data_hashes_alg"] = "sha-256"
-                        }
-                }
-                var itemWithTilda: String? = nil
-                if item.hasSuffix("~") {
-                    itemWithTilda = item
-                } else {
-                    itemWithTilda = "\(item)~"
-                }
-                
-                if let keyBindingJwt = await KeyBindingJwtService().generateKeyBindingJwt(issuerSignedJwt: itemWithTilda, claims: claims, keyHandler: keyHandler), let vct = dict["vct"] as? String, !vct.isEmpty {
-                    var updatedCred = "\(itemWithTilda ?? "")\(keyBindingJwt)"
-                    vpTokenList.append(updatedCred)
-                } else if credFormat == "mso_mdoc" {
-                    mdocList.append(item)
-                    if !vpTokenList.contains("MDOC") {
-                        vpTokenList.append("MDOC")
-                    }
-                } else {
-                    jwtList.append(item)
-                    if !vpTokenList.contains("JWT") {
-                        firstJWTProcessedIndex = vpTokenList.count
-                        vpTokenList.append("JWT")
-                    }
-                }
-            }
-            var jwtPayload: String? = nil
-            var vpToken: String = ""
-            var mdocToken: String = ""
-            if !jwtList.isEmpty {
-                let uuid4 = UUID().uuidString
-                let jwtVP =
-                ([
-                    "@context": ["https://www.w3.org/2018/credentials/v1"],
-                    "holder": did,
-                    "id": "urn:uuid:\(uuid4)",
-                    "type": [
-                        "VerifiablePresentation"
-                    ],
-                    "verifiableCredential": jwtList
-                ] as [String : Any])
-                let currentTime = Int(Date().timeIntervalSince1970)
-                jwtPayload = ([
-                    "aud": clientID,
-                    "exp": currentTime + 3600,
-                    "iat": currentTime,
-                    "iss": "\(did)",
-                    "jti": "urn:uuid:\(uuid4)",
-                    "nbf": currentTime,
-                    "nonce": "\(nonce)",
-                    "sub": "\(did)",
-                    "vp": jwtVP,
-                ] as [String : Any]).toString() ?? ""
-                        vpToken = await generateVPToken(header: jwtHeader, payload: jwtPayload ?? "")
-            }
             
-            if !mdocList.isEmpty {
-                
-                mdocToken = generateVPTokenForMdoc(credential: credentialsList ?? [], presentationDefinition: presentationDefinition)
-            }
-            
-            
-            
-            if let index = vpTokenList.firstIndex(of: "JWT") {
-                vpTokenList[index] = vpToken ?? ""
-            }
-            
-            if let index = vpTokenList.firstIndex(of: "MDOC") {
-                mdocProcessedIndex = index
-                vpTokenList[index] = mdocToken ?? ""
-            }
-            
-            //if presentationRequest == nil { return nil }
-            var descMap : [DescriptorMap] = []
-            var presentationDefinition :PresentationDefinitionModel? = nil
-            do {
-                presentationDefinition = try VerificationService.processPresentationDefinition(presentationRequest?.presentationDefinition)
-            } catch {
-                presentationDefinition = nil
-            }
-            var credentialFormat: String = ""
-            
-            var format = ""
-            var formatType: String? = ""
-            var jwtIndex = 0
-            var vpTokenIndex = 0
-            var jwtListAdded: Bool = false
-            if let inputDescriptors = presentationDefinition?.inputDescriptors {
-                for index in 0..<inputDescriptors.count {
-                    let item = inputDescriptors[index]
-                    if var format2 = item.format ?? presentationDefinition?.format {
-                        for (key, _) in format2 {
-                            credentialFormat = key
-                        }
-                    }
-                    
-                    if credentialFormat == "vcsd-jwt" || credentialFormat == "vpsd-jwt"{
-                        format = "vc+sd-jwt"
-                    } else if credentialFormat == "dcsd-jwt" {
-                        format = "dc+sd-jwt"
-                    } else {
-                        format = credentialFormat
-                    }
-                    let encodedFormat = format.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed.union(CharacterSet(charactersIn: "+")).subtracting(CharacterSet(charactersIn: "+")))?.replacingOccurrences(of: "+", with: "%2B")
-                    var pathNested: DescriptorMap? = nil
-                    if format ==  "vc+sd-jwt" || format == "dc+sd-jwt" {
-                        pathNested = nil
-                        if vpTokenList.count == 1 {
-                            descMap.append(DescriptorMap(id: item.id ?? "", path: "$", format: encodedFormat ?? "", pathNested: pathNested))
-                        } else {
-                            descMap.append(DescriptorMap(id: item.id ?? "", path: "$[\(vpTokenIndex)]", format: encodedFormat ?? "", pathNested: pathNested))
-                        }
-                        vpTokenIndex += 1
-                    } else if credentialFormat == "mso_mdoc" {
-                        formatType = "mso_mdoc"
-                        pathNested = nil
-                        if vpTokenList.count == 1 {
-                            descMap.append(DescriptorMap(id: item.id ?? "", path: "$", format: formatType ?? "", pathNested: pathNested))
-                        } else {
-                            descMap.append(DescriptorMap(id: item.id ?? "", path: "$[\(mdocProcessedIndex ?? 0)]", format: formatType ?? "", pathNested: pathNested))
-                        }
-                        vpTokenIndex += 1
-                    } else {
-                        var pathNestedValue: DescriptorMap? = nil
-                        formatType = encodedFormat ?? "jwt_vp"
-                        let credentialFormat = fetchFormat(presentationDefinition: presentationDefinition, index: index)
-                        if vpTokenList.count == 1 {
-                            pathNestedValue = DescriptorMap(id: item.id ?? "", path: "$.vp.verifiableCredential[\(jwtIndex)]", format: "jwt_vc", pathNested: nil)
-                            descMap.append(DescriptorMap(id: item.id ?? "", path: "$", format: credentialFormat ?? "", pathNested: pathNestedValue))
-                        } else {
-                            pathNestedValue = DescriptorMap(id: item.id ?? "", path: "$[\(firstJWTProcessedIndex ?? 0)].vp.verifiableCredential[\(jwtIndex)]", format: "jwt_vc", pathNested: nil)
-                            descMap.append(DescriptorMap(id: item.id ?? "", path: "$[\(firstJWTProcessedIndex ?? 0)]", format: formatType ?? "", pathNested: pathNestedValue))
-                        }
-                        if !(jwtListAdded) {
-                            vpTokenIndex += 1
-                            jwtListAdded = true
-                        }
-                        jwtIndex += 1
-                    }
-                }
-            }
-            presentationSubmission = PresentationSubmissionModel(id: UUID().uuidString, definitionID: presentationDefinition?.id ?? "", descriptorMap: descMap)
-        }
-    if let resType = presentationRequest?.responseType, resType.contains("id_token") {
-            idToken =  await generateJWTokenForIDtokenRequest(didKeyIdentifier: did, authorizationEndpoint: presentationRequest?.clientId ?? "", nonce: presentationRequest?.nonce ?? "")
+            let params = await AuthorisationResponseHandler().prepareAuthorisationResponse(credentialsList: credentialsList, presentationRequest: presentationRequest, did: did, keyHandler: keyHandler) ?? [:]
+            guard let redirectURL = presentationRequest?.redirectUri else {return nil}
+            return await sendVPRequest(params: params, redirectURI: presentationRequest?.redirectUri ?? "", wua: wua, pop: pop)
         }
         
-        return (vpTokenList, presentationSubmission, idToken)
-    }
-    
-   func checkTransactionDataWithMultipleInputDescriptors(inputDescriptor: InputDescriptor?,
-                                                          transactionDataItem: String?) -> Bool {
-        let decodedTransactionData = transactionDataItem?.decodeBase64() ?? ""
-        let transactionDataDict = UIApplicationUtils.shared.convertToDictionary(text: decodedTransactionData)
-        let credIdsArray = transactionDataDict?["credential_ids"] as? [String]
-        guard let inputDescriptorId = inputDescriptor?.id else { return false }
-        return credIdsArray?.contains(inputDescriptorId) ?? false
-    }
-    
-    private func fetchFormat(presentationDefinition: PresentationDefinitionModel?, index: Int) -> String {
-        var credentialFormat: String = ""
-        var credentialFormatString: String = ""
-        var inputDescriptorFromat: String = ""
-        var presentationDefinitionFormat: String = ""
-        if var format = presentationDefinition?.inputDescriptors?[index].format ?? presentationDefinition?.format {
-            for (key, _) in format {
-                credentialFormat = key
-            }
-        }
-        if credentialFormat == "vcsd-jwt" || credentialFormat == "vpsd-jwt"{
-            credentialFormatString = "vc+sd-jwt"
-        } else if credentialFormat == "dcsd-jwt" {
-            credentialFormatString = "dc+sd-jwt"
-        } else {
-            credentialFormatString = credentialFormat
-        }
-        
-        guard let encodedFormat = credentialFormatString.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlQueryAllowed.union(CharacterSet(charactersIn: "+")).subtracting(CharacterSet(charactersIn: "+")))?.replacingOccurrences(of: "+", with: "%2B") else { return ""}
-        if var format = presentationDefinition?.inputDescriptors?[index].format  {
-            for (key, _) in format {
-                inputDescriptorFromat = key
-            }
-        }
-        if var format = presentationDefinition?.format  {
-            for (key, _) in format {
-                presentationDefinitionFormat = key
-            }
-        }
-        if inputDescriptorFromat.contains("jwt_vp") {
-            return "jwt_vp"
-        }
-        if inputDescriptorFromat.contains("jwt_vp_json") {
-            return "jwt_vp_json"
-        }
-        if presentationDefinitionFormat.contains("jwt_vp")  {
-            return "jwt_vp"
-        }
-        if  presentationDefinitionFormat.contains("jwt_vp_json") {
-            return "jwt_vp_json"
-        }
-        return encodedFormat
-    }
-        
-        
-    func createVPToken(presentationRequest: PresentationRequest?, format: String, credentialsList: [String]?, presentationDefinition :PresentationDefinitionModel?, did: String, header: String, payload: String) async -> (String, String) {
-            var vpToken: String = ""
-            var idToken: String = ""
-            if format == "mso_mdoc" {
-                vpToken = generateVPTokenForMdoc(credential: credentialsList ?? [], presentationDefinition: presentationDefinition)
-            } else {
-                if presentationRequest?.responseType == "vp_token" {
-                    vpToken = await generateVPToken(header: header, payload: payload)
-                } else if presentationRequest?.responseType == "id_token" {
-                    idToken =  await generateJWTokenForIDtokenRequest(didKeyIdentifier: did, authorizationEndpoint: presentationRequest?.clientId ?? "", nonce: presentationRequest?.nonce ?? "")
-                }
-            }
-            return (vpToken, idToken)
-        }
-    
-    private func generateJWKFromPrivateKey(secureKey: SecureKeyData, did: String) -> [String: Any] {
-        let rawRepresentation = secureKey.publicKey
-        let x = rawRepresentation[rawRepresentation.startIndex..<rawRepresentation.index(rawRepresentation.startIndex, offsetBy: 32)]
-        let y = rawRepresentation[rawRepresentation.index(rawRepresentation.startIndex, offsetBy: 32)..<rawRepresentation.endIndex]
-        return [
-            "crv": "P-256",
-            "kty": "EC",
-            "x": x.urlSafeBase64EncodedString(),
-            "y": y.urlSafeBase64EncodedString()
-        ]
-    }
+//    func createVPToken(presentationRequest: PresentationRequest?, format: String, credentialsList: [String]?, presentationDefinition :PresentationDefinitionModel?, did: String, header: String, payload: String) async -> (String, String) {
+//            var vpToken: String = ""
+//            var idToken: String = ""
+//            if format == "mso_mdoc" {
+//                vpToken = MDocVpTokenBuilder().build(credentials: credentialsList ?? [], presentationRequest: presentationRequest, did: did, index: <#Int#>) ?? ""
+//            } else {
+//                if presentationRequest?.responseType == "vp_token" {
+//                    vpToken = await generateVPToken(header: header, payload: payload)
+//                } else if presentationRequest?.responseType == "id_token" {
+//                    idToken =  await generateJWTokenForIDtokenRequest(didKeyIdentifier: did, authorizationEndpoint: presentationRequest?.clientId ?? "", nonce: presentationRequest?.nonce ?? "")
+//                }
+//            }
+//            return (vpToken, idToken)
+//        }
     
     public func processAuthorisationRequest(data: String?) async -> (PresentationRequest?, EUDIError?) {
             guard let _ = data else { return (nil, nil) }
@@ -353,7 +86,7 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
                                                                    requestUri: requestUri,
                                                                    presentationDefinition: presentationDefinition,
                                                                    clientMetaData: clientMetaData,
-                                                                   presentationDefinitionUri: presentationDefinitionUri, clientMetaDataUri: clientMetaDataUri, clientIDScheme: clientIDScheme, transactionData: [""], request: request
+                                                                   presentationDefinitionUri: presentationDefinitionUri, clientMetaDataUri: clientMetaDataUri, clientIDScheme: clientIDScheme, transactionData: [""], dcqlQuery: nil, request: request
                     )
                     if presentationDefinition == "" && presentationDefinitionUri != "" {
                         let presentationDefinitionFromUri = await resolvePresentationDefinitionFromURI(url: presentationDefinitionUri)
@@ -392,8 +125,14 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
                                         } else {
                                             model.request = requestData
                                         }
+                                        do {
+                                            let updatedModel = try await ClientIdSchemeRequestHandler().handle(jwtRequest: model.request, presentationRequest: model)
+                                            return (updatedModel, nil)
+                                        } catch  PresentationRequestError.requestValidationFailed {
+                                            let error = EUDIError(from: ErrorResponse(message:"Request validation failed", code: nil))
+                                            return (nil, error)
+                                        }
                                        // model.request = model.request != nil ? model.request : jwtString
-                                        return validatePresentationRequest(model: model, jwtString: jwtString)
                                     }
                                 } catch {
                                     debugPrint("Error:\(error)")
@@ -426,155 +165,6 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
             return (nil, nil)
         }
     
-    func validatePresentationRequest(model: PresentationRequest?, jwtString: String?) -> (PresentationRequest?, EUDIError?){
-        guard let jwtString = jwtString, let model = model else { return (nil, nil)}
-        let x5cData = X509SanRequestVerifier.shared.extractX5cFromJWT(jwt: jwtString) ?? []
-        let isClientIDvalid = X509SanRequestVerifier.shared.validateClientIDInCertificate(x5cChain: x5cData, clientID: model.clientId ?? "")
-        let isTrustChainValid = X509SanRequestVerifier.shared.validateTrustChain(x5cChain: x5cData)
-        let isSignValid = X509SanRequestVerifier.shared.validateSignatureWithCertificate(jwt: jwtString, x5cChain: x5cData)
-        if model.clientIDScheme == "x509_san_dns" {
-            if isClientIDvalid && isTrustChainValid && isSignValid {
-                return (model, nil)
-            } else {
-                let error = EUDIError(from: ErrorResponse(message:"Invalid Request", code: nil))
-                return(nil, error)
-            }
-        } else {
-            return (model, nil)
-        }
-    }
-    
-    func extractFQDN(from urlString: String) -> String? {
-        guard let url = URL(string: urlString), let host = url.host else {
-            print("Invalid URL or missing host in URL")
-            return nil
-        }
-        return host
-    }
-    
-    func extractX5cFromJWT(jwt: String) -> [String]? {
-            let segments = jwt.split(separator: ".")
-            guard segments.count == 3 else {
-                print("Invalid JWT format")
-                return nil
-            }
-            
-            let headerSegment = "\(segments[0])"
-        let header = headerSegment.decodeBase64() ?? ""
-            guard let headerData = header.data(using: .utf8),
-                  let headerDict = try? JSONSerialization.jsonObject(with: headerData, options: []) as? [String: Any],
-                  let x5cChain = headerDict["x5c"] as? [String] else {
-                print("Failed to decode JWT header or x5c not found")
-                return nil
-            }
-            
-            return x5cChain
-        }
-    
-    func validateClientIDInCertificate(x5cChain: [String], clientID: String) -> Bool {
-        guard let leafCertData = Data(base64Encoded: x5cChain.first ?? "") else {
-            return false
-        }
-        
-        // Create SecCertificate from leaf certificate data
-        guard let certificate = SecCertificateCreateWithData(nil, leafCertData as CFData) else {
-            print("Invalid certificate data")
-            return false
-        }
-        let dnsNames = extractDNSNamesFromCertificate(certificate: certificate)
-        // Check if clientID matches any DNS name in SAN
-        return dnsNames.contains(clientID)
-    }
-    
-    private func extractDNSNamesFromCertificate(certificate: SecCertificate) -> [String] {
-        var dnsNames = [String]()
-        
-        let certData = SecCertificateCopyData(certificate) as Data
-        do {
-            let asn1Data = try ASN1DERDecoder.decode(data: certData)
-            for element in asn1Data {
-                if let sequence = element as? ASN1Object {
-                    dnsNames = extractSubjectAltNames(from: sequence)
-                }
-            }
-            return dnsNames
-        } catch {
-            print("error")
-        }
-        return dnsNames
-    }
-    
-    func extractSubjectAltNames(from asn1Object: ASN1Object) -> [String] {
-        var altNames = [String]()
-        
-        guard let subjectAltNameObj = asn1Object.findOid(.subjectAltName), let parentStructure = subjectAltNameObj.parent else {
-            return altNames
-        }
-        let parentSubObjects = parentStructure.sub as? [ASN1Object]
-        let octetStringObject1 = parentSubObjects?.first(where: { $0.identifier?.tagNumber() == .octetString })
-        let octetStringSubObjects1 = octetStringObject1?.sub as? [ASN1Object]
-        print("")
-        var subArray: [ASN1Object] = []
-        for index in 0...parentStructure.subCount() {
-            if let subObject = parentStructure.sub(index) {
-                subArray.append(subObject)
-            }
-        }
-        if let octetStringObject = subArray.first(where: { $0.identifier?.tagNumber() == .octetString }) {
-            var ocereSubArray: [ASN1Object] = []
-            for index in 0...octetStringObject.subCount() {
-                if let subObject = octetStringObject.sub(index) {
-                    ocereSubArray.append(subObject)
-                }
-            }
-            if let altNameSequence = ocereSubArray.first(where: { $0.identifier?.tagNumber() == .sequence }) {
-                var altNameSequenceArray: [ASN1Object] = []
-                for index in 0...altNameSequence.subCount() {
-                    if let subObject = altNameSequence.sub(index) {
-                        altNameSequenceArray.append(subObject)
-                    }
-                }
-                for altNameObj in altNameSequenceArray {
-                    if let altNameString = altNameObj.asString {
-                        altNames.append(altNameString)
-                    } else if let altNameValue = altNameObj.value as? String {
-                        altNames.append(altNameValue)
-                    }
-                }
-            }
-        }
-        
-        return altNames
-    }
-    
-    func validateSignatureWithCertificate(jwt: String, x5cChain: [String]) -> Bool {
-        guard let leafCertData = Data(base64Encoded: x5cChain.first ?? ""),
-              let certificate = SecCertificateCreateWithData(nil, leafCertData as CFData) else {
-            print("Failed to create certificate from leaf certificate data")
-            return false
-        }
-        
-        guard let publicKey = SecCertificateCopyKey(certificate) else {
-            print("Unable to extract public key from certificate")
-            return false
-        }
-        
-        let segments = jwt.split(separator: ".")
-        guard segments.count == 3 else {
-            print("Invalid JWT format")
-            return false
-        }
-        
-        let signedData = segments[0] + "." + segments[1]
-        let b64 = base64UrlToBase64(String(segments[2]))
-        guard let signature = Data(base64Encoded: b64) else {
-            print("Failed to decode JWT signature")
-            return false
-        }
-        
-        return verifySignature(publicKey: publicKey, data: String(signedData), signature: signature, algorithm: .rsaSignatureMessagePKCS1v15SHA256)
-    }
-    
     func base64UrlToBase64(_ base64Url: String) -> String {
         var base64 = base64Url
             .replacingOccurrences(of: "-", with: "+")
@@ -587,68 +177,6 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
         }
         
         return base64
-    }
-
-    //  perform the actual signature verification
-    func verifySignature(publicKey: SecKey, data: String, signature: Data, algorithm: SecKeyAlgorithm) -> Bool {
-        guard let dataToVerify = data.data(using: .utf8) else {
-            print("Failed to convert data to verify to Data")
-            return false
-        }
-        
-        // Check if the algorithm is supported for the given key
-        guard SecKeyIsAlgorithmSupported(publicKey, .verify, algorithm) else {
-            print("Algorithm not supported by public key")
-            return false
-        }
-        
-        // Perform the verification
-        var error: Unmanaged<CFError>?
-        let result = SecKeyVerifySignature(publicKey, algorithm, dataToVerify as CFData, signature as CFData, &error)
-        
-        if let error = error {
-            print("Signature verification failed with error: \(error.takeRetainedValue())")
-            return false
-        }
-        
-        return result
-    }
-    
-    func validateTrustChain(x5cChain: [String]) -> Bool {
-        var certificates = [SecCertificate]()
-        for certBase64 in x5cChain {
-            if let certData = Data(base64Encoded: certBase64),
-               let certificate = SecCertificateCreateWithData(nil, certData as CFData) {
-                certificates.append(certificate)
-            } else {
-                print("Invalid certificate in chain")
-                return false
-            }
-        }
-        
-        guard !certificates.isEmpty else { return false }
-        
-        // Create a trust object with a custom policy
-        var secTrust: SecTrust?
-        let policy = SecPolicyCreateBasicX509()
-        let status = SecTrustCreateWithCertificates(certificates as CFArray, policy, &secTrust)
-        guard status == errSecSuccess, let trust = secTrust else {
-            print("Failed to create trust object")
-            return false
-        }
-
-        // Optionally add custom anchors to the trust evaluation
-        SecTrustSetAnchorCertificates(trust, certificates as CFArray)
-        SecTrustSetAnchorCertificatesOnly(trust, false)
-
-        // Evaluate the trust chain without requiring a root in the system’s trust store
-        var error: CFError?
-        let isValid = SecTrustEvaluateWithError(trust, &error)
-        if let error = error {
-            print("Trust chain validation failed with error: \(error)")
-        }
-
-        return isValid
     }
     
     func resolvePresentationDefinitionFromURI(url: String?) async -> String? {
@@ -691,16 +219,7 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
         return nil
     }
     
-    private func generateJWTHeader(jwk: [String: Any], did: String) -> String {
-        let methodSpecificId = did.replacingOccurrences(of: "did:key:", with: "")
-        
-        return ([
-            "alg": "ES256",
-            "kid": "\(did)#\(methodSpecificId)",
-            "typ": "JWT",
-            "jwk": jwk
-        ] as [String : Any]).toString() ?? ""
-    }
+    
     
     private func generateJWTPayload(did: String, nonce: String, credentialsList: [String], state: String, clientID: String, transactionData: String? = nil) async -> String {
         var updatedCredentialList: [String] = []
@@ -801,62 +320,6 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
             return idToken
         }
     
-    private func generateVPTokenForMdoc(credential: [String], presentationDefinition: PresentationDefinitionModel?) -> String {
-        var cborString: String = ""
-        var base64StringWithoutPadding = ""
-        var requestedParams: [String] = []
-        var limitDisclosure: Bool = false
-        var docFiltered: [Document] = []
-        
-        for (index, cred) in credential.enumerated() {
-            if !cred.contains(".") {
-                if let issuerAuthData = getIssuerAuth(credential: cred), let cborNameSpace = getNameSpaces(credential: cred, inputDescriptor: presentationDefinition?.inputDescriptors?[index]) {
-                    
-                    if let fields = presentationDefinition?.inputDescriptors?[index].constraints?.fields {
-                        for field in fields {
-                            let components = field.path?.first?.components(separatedBy: ["[", "]", "'"])
-                            
-                            let filteredComponents = components?.filter { !$0.isEmpty }
-                            
-                            if let identifier = filteredComponents?.last {
-                                requestedParams.append(String(identifier))
-                            }
-                        }
-                    }
-                    if presentationDefinition?.inputDescriptors?[index].constraints?.limitDisclosure == nil {
-                        limitDisclosure = false
-                    } else {
-                        limitDisclosure = true
-                    }
-                    var nameSpaceData: CBOR? = nil
-                    if limitDisclosure {
-                        nameSpaceData = filterNameSpaces(nameSpacesValue: cborNameSpace, requestedParams: requestedParams)
-                    } else {
-                        nameSpaceData = cborNameSpace
-                    }
-                    let docType = getDocTypeFromIssuerAuth(cborData: issuerAuthData)
-                    docFiltered.append(contentsOf: [Document(docType: docType ?? "", issuerSigned: IssuerSigned(nameSpaces: nameSpaceData ?? nil, issuerAuth: issuerAuthData))])
-                    
-                    let documentsToAdd = docFiltered.count == 0 ? nil : docFiltered
-                    let deviceResponseToSend = DeviceResponse(version: "1.0", documents: documentsToAdd,status: 0)
-                    let responseDict = deviceResponseToSend.toDictionary()
-                    if let cborData = encodeToCBOR(responseDict) {
-                        cborString = Data(cborData.encode()).base64EncodedString()
-                        
-                        base64StringWithoutPadding = cborString.replacingOccurrences(of: "=", with: "") ?? ""
-                        base64StringWithoutPadding = base64StringWithoutPadding.replacingOccurrences(of: "+", with: "-")
-                        base64StringWithoutPadding = base64StringWithoutPadding.replacingOccurrences(of: "/", with: "_")
-                        
-                        print(Data(cborData.encode()).base64EncodedString())
-                    } else {
-                        print("Failed to encode data")
-                    }
-                }
-            }
-        }
-        return base64StringWithoutPadding
-    }
-    
     func createParamsForSendVPRequest(token: [String], idToken: String, presentationSubmission: String, state: String, responseType: String) -> [String: Any]{
         var params: [String: Any] = [:]
         var vpToken: Any? = nil
@@ -877,20 +340,7 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
         return params
     }
     
-    private func sendVPRequest(vpToken: [String], idToken: String = "", presentationSubmission: PresentationSubmissionModel?, redirectURI: String, state: String, responseType: String = "", wua: String, pop: String) async -> WrappedVerificationResponse? {
-        let encoder = JSONEncoder()
-        encoder.keyEncodingStrategy = .convertToSnakeCase
-        let data = try? encoder.encode(presentationSubmission)
-        
-        var json = [String: Any]()
-        do {
-            let jsonObj = try JSONSerialization.jsonObject(with: data!, options: .mutableContainers)
-            json = jsonObj as! [String : Any]
-        } catch let myJSONError {
-            debugPrint(myJSONError)
-        }
-        
-        let params = createParamsForSendVPRequest(token: vpToken, idToken: idToken, presentationSubmission: json.toString() ?? "", state: state, responseType: responseType)
+    private func sendVPRequest(params: [String: Any], redirectURI: String, wua: String, pop: String) async -> WrappedVerificationResponse? {
         let postString = UIApplicationUtils.shared.getPostString(params: params)
         let paramsData = postString.data(using: .utf8)
         
@@ -970,6 +420,7 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
             throw NSError(domain: "", code: 0, userInfo: [NSLocalizedDescriptionKey: "Error processing presentation definition"])
         }
     }
+    
     public func filterCredentials(credentialList: [String?], presentationDefinition: PresentationDefinitionModel) -> [[String]] {
         var response: [[String]] = []
         
@@ -1039,7 +490,7 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
     func processCborCredentialToJsonString(credentialList: [String?]) -> [String] {
         var processedCredentials = [String]()
         for cred in credentialList {
-            var cborItem = convertCBORtoJson(credential: cred ?? "") ?? ""
+            var cborItem = MDocVpTokenBuilder().convertCBORtoJson(credential: cred ?? "") ?? ""
             processedCredentials.append(cborItem)
         }
         return processedCredentials
@@ -1058,7 +509,7 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
                     if case let CBOR.tagged(tag, item) = nestedCBOR, tag.rawValue == 24 {
                         if case let CBOR.byteString(data) = item {
                             if let decodedInnerCBOR = try? CBOR.decode([UInt8](data)) {
-                                docType = extractDocType(cborData: decodedInnerCBOR )
+                                docType = MDocVpTokenBuilder().extractDocType(cborData: decodedInnerCBOR )
                             } else {
                                 print("Failed to decode inner ByteString under Tag 24.")
                             }
@@ -1074,27 +525,7 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
         }
         return docType ?? ""
     }
-    
-    func extractDocType(cborData: CBOR) -> String? {
-        guard case let CBOR.map(map) = cborData else {
-            return nil
-        }
         
-        // Iterate over the map to find the key 'docType'
-        for (key, value) in map {
-            if case let CBOR.utf8String(keyString) = key, keyString == "docType" {
-                if case let CBOR.utf8String(docTypeValue) = value {
-                    return docTypeValue
-                } else {
-                    print("The value associated with 'docType' is not a string.")
-                }
-            }
-        }
-        
-        print("docType not found in the CBOR map.")
-        return nil
-    }
-    
     func extractStatusListFromCBOR(cbor: CBOR) -> (Int?, String?) {
         guard case let CBOR.map(map) = cbor else {
             return (nil, nil)        }
@@ -1165,68 +596,7 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
         }
         return (index, uri)
     }
-    
-    public func getIssuerAuth(credential: String) -> CBOR? {
-        if let data = Data(base64URLEncoded: credential) {
-            do {
-                let decodedCBOR = try CBOR.decode([UInt8](data))
-                
-                if let dictionary = decodedCBOR {
-                    if let issuerAuthValue = dictionary[CBOR.utf8String("issuerAuth")] {
-                        return issuerAuthValue
-                    }
-                }
-            } catch {
-                print("Error decoding CBOR: \(error)")
-                return nil
-            }
-        } else {
-            print("Invalid base64 URL encoded credential.")
-            return nil
-        }
         
-        return nil
-    }
-    
-    func getNameSpaces(credential: String, inputDescriptor: InputDescriptor?) -> CBOR? {
-        var requestedParams: [String] = []
-        if let fields = inputDescriptor?.constraints?.fields {
-            for field in fields {
-                let components = field.path?.first?.components(separatedBy: ["[", "]", "'"])
-                
-                let filteredComponents = components?.filter { !$0.isEmpty }
-                
-                if let identifier = filteredComponents?.last {
-                    requestedParams.append(String(identifier))
-                }
-            }
-        }
-        // Convert the base64 URL encoded credential to Data
-        if let data = Data(base64URLEncoded: credential) {
-            do {
-                // Decode the CBOR data into a dictionary
-                let decodedCBOR = try CBOR.decode([UInt8](data))
-                
-                if let dictionary = decodedCBOR {
-                    // Check for the presence of "issuerAuth" in the dictionary
-                    if let issuerAuthValue = dictionary[CBOR.utf8String("nameSpaces")] {
-                        return issuerAuthValue // Return the issuerAuth value directly
-                    }
-                }
-            } catch {
-                print("Error decoding CBOR: \(error)")
-                return nil
-            }
-        } else {
-            print("Invalid base64 URL encoded credential.")
-            return nil
-        }
-        
-        return nil // Return nil if "issuerAuth" is not found
-    }
-    
-    
-    
     public func getFilteredCbor(credential: String, inputDescriptor: InputDescriptor?) -> CBOR? {
         var requestedParams: [String] = []
         var limitDisclosure: Bool = false
@@ -1282,54 +652,13 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
 
         if let namespacesValue = modifiedCBORMap[CBOR.utf8String("nameSpaces")] {
             print("printing modifiedCBORMap nameSpaces: \(CBOR.map(modifiedCBORMap))")
-            if let filteredNameSpaces = filterNameSpaces(nameSpacesValue: namespacesValue, requestedParams: requestedParams) {
+            if let filteredNameSpaces = MDocVpTokenBuilder().filterNameSpaces(nameSpacesValue: namespacesValue, requestedParams: requestedParams) {
                 modifiedCBORMap[CBOR.utf8String("nameSpaces")] = filteredNameSpaces
                 print("printing modifiedCBORMap nameSpaces inside: \(filteredNameSpaces)")
             }
         }
         print("printing modifiedCBORMap return: \(CBOR.map(modifiedCBORMap))")
         return CBOR.map(modifiedCBORMap)
-    }
-    
-    public func filterNameSpaces(nameSpacesValue: CBOR, requestedParams: [String]) -> CBOR? {
-        if case let CBOR.map(nameSpaces) = nameSpacesValue {
-            var filteredNameSpaces: OrderedDictionary<CBOR, CBOR> = [:]
-            print("printing nameSpaces cbor: \(nameSpaces)")
-            for (key, namespaceValue) in nameSpaces {
-                var valuesArray: [CBOR] = []
-                
-                if case let CBOR.array(orgValues) = namespaceValue {
-                    for value in orgValues {
-                        if case let CBOR.tagged(tag, taggedValue) = value, tag.rawValue == 24 {
-                            if case let CBOR.byteString(byteString) = taggedValue {
-                                let data = Data(byteString)
-                                if let decodedInnerCBOR = try? CBOR.decode([UInt8](data)),
-                                   case let CBOR.map(decodedMap) = decodedInnerCBOR {
-                                    if let identifier = decodedMap[CBOR.utf8String("elementIdentifier")],
-                                       let value = decodedMap[CBOR.utf8String("elementValue")],
-                                       case let CBOR.utf8String(identifierString) = identifier {
-                                        if requestedParams.contains(identifierString) {
-                                            valuesArray.append(CBOR.tagged(tag, CBOR.byteString(byteString)))
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    print("printing cbor attributes array: \(valuesArray)")
-
-                }
-                
-                if !valuesArray.isEmpty {
-                    print("printing cbor valuesArray array: \(valuesArray)")
-                    filteredNameSpaces[key] = CBOR.array(valuesArray)
-                }
-            }
-            print("printing cbor data array: \(filteredNameSpaces)")
-            return CBOR.map(filteredNameSpaces)
-        }
-        
-        return nil
     }
     
     func convertCBORtoJson(credential: String) -> String? {
@@ -1401,96 +730,6 @@ func createVPTokenAndPresentationSubmission(credentialsList: [String]?, clientID
         default:
             return "Unsupported CBOR type"
         }
-    }
-    
-    func encodeToCBOR(_ dict: [String: Any]) -> CBOR? {
-        var cborMap: OrderedDictionary<CBOR, CBOR> = [:]
-        
-        for (key, value) in dict {
-            let cborKey = CBOR.utf8String(key)
-            
-            // Handle different value types
-            if let stringValue = value as? String {
-                if stringValue == "NULL" {
-                    cborMap[cborKey] = CBOR.null
-                } else if stringValue.contains("ByteString") {
-                    // Handle ByteString placeholder
-                    cborMap[cborKey] = CBOR.byteString([0x01, 0x02, 0x03]) // Example ByteString, customize as needed
-                } else {
-                    cborMap[cborKey] = CBOR.utf8String(stringValue)
-                }
-            } else if let intValue = value as? Int {
-                if intValue >= 0 {
-                    cborMap[cborKey] = CBOR.unsignedInt(UInt64(intValue))
-                } else {
-                    cborMap[cborKey] = CBOR.negativeInt(UInt64(-1 - intValue))
-                }
-            } else if let floatValue = value as? Float {
-                cborMap[cborKey] = CBOR.float(floatValue)
-            } else if let doubleValue = value as? Double {
-                cborMap[cborKey] = CBOR.double(doubleValue)
-            } else if let boolValue = value as? Bool {
-                cborMap[cborKey] = CBOR.boolean(boolValue)
-            } else if let arrayValue = value as? [Any] {
-                cborMap[cborKey] = encodeArrayToCBOR(arrayValue)
-            } else if let dictValue = value as? [String: Any] {
-                if let encodedDict = encodeToCBOR(dictValue) {
-                    cborMap[cborKey] = encodedDict
-                }
-            } else if let cborValue = value as? SwiftCBOR.CBOR {
-                // Handle CBOR types directly
-                cborMap[cborKey] = cborValue
-            } else if let customObject = value as? CustomCborConvertible {
-                // Handle custom objects that conform to CustomCborConvertible
-                cborMap[cborKey] = customObject.toCBOR()
-            } else {
-                print("Unsupported type for key: \(key)")
-                return nil
-            }
-        }
-        
-        return CBOR.map(cborMap)
-    }
-    
-    func encodeArrayToCBOR(_ array: [Any]) -> CBOR {
-        var cborArray: [CBOR] = []
-        
-        for value in array {
-            if let stringValue = value as? String {
-                if stringValue == "NULL" {
-                    cborArray.append(CBOR.null)
-                } else if stringValue.contains("ByteString") {
-                    cborArray.append(CBOR.byteString([0x01, 0x02, 0x03])) // Example ByteString
-                } else {
-                    cborArray.append(CBOR.utf8String(stringValue))
-                }
-            } else if let intValue = value as? Int {
-                if intValue >= 0 {
-                    cborArray.append(CBOR.unsignedInt(UInt64(intValue)))
-                } else {
-                    cborArray.append(CBOR.negativeInt(UInt64(-1 - intValue)))
-                }
-            } else if let floatValue = value as? Float {
-                cborArray.append(CBOR.float(floatValue))
-            } else if let boolValue = value as? Bool {
-                cborArray.append(CBOR.boolean(boolValue))
-            } else if let dictValue = value as? [String: Any], let encodedDict = encodeToCBOR(dictValue) {
-                cborArray.append(encodedDict)
-            } else if let subArray = value as? [Any] {
-                cborArray.append(encodeArrayToCBOR(subArray))
-            } else if let cborValue = value as? SwiftCBOR.CBOR {
-                // Handle CBOR values directly
-                cborArray.append(cborValue)
-            } else if let customObject = value as? CustomCborConvertible {
-                // Handle custom objects
-                cborArray.append(customObject.toCBOR())
-            } else {
-                print("Unsupported type in array")
-                return CBOR.null
-            }
-        }
-        
-        return CBOR.array(cborArray)
     }
     
     
