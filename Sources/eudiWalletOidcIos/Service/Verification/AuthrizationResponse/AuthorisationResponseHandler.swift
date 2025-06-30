@@ -18,7 +18,15 @@ class AuthorisationResponseHandler {
             return await AuthorisationResponseBuilder.buildResponse(credentialsList: credentialsList, presentationRequest: presentationRequest, did: did, keyHandler: keyHandler)
         case .directPostJWT:
             let params = await AuthorisationResponseBuilder.buildResponse(credentialsList: credentialsList, presentationRequest: presentationRequest, did: did, keyHandler: keyHandler)
-            return [:]
+            do {
+                let encrypted = try await JWEEncryptor().encrypt(payload: params, presentationRequest: presentationRequest)
+                var encryptedResponseParams: [String: Any] = [:]
+                encryptedResponseParams["response"] = encrypted
+                return encryptedResponseParams
+            } catch {
+                return nil
+                print("")
+            }
         case .dcApi:
             print("Handling DC API response mode")
             return [:]
