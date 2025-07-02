@@ -546,8 +546,16 @@ public class IssueService: NSObject, IssueServiceProtocol {
                         "jwt": idToken
                     ]
                 ]
-            }  else if tokenResponse?.cNonce == nil && authDetails == nil && issuerConfig.nonceEndPoint != nil {
-        params = [
+            } else if authDetails != nil && authDetails?.type == "openid_credential" && authDetails?.credentialConfigId != nil && issuerConfig.nonceEndPoint != nil {
+                params = [
+                    "credential_configuration_id": authDetails?.credentialConfigId,
+                    "proof": [
+                        "proof_type": "jwt",
+                        "jwt": idToken
+                    ]
+                ]
+            } else if tokenResponse?.cNonce == nil && authDetails == nil && issuerConfig.nonceEndPoint != nil {
+                params = [
                     "credential_configuration_id": credentialTypes.first,
                     "proof": [
                         "proof_type": "jwt",

@@ -216,9 +216,9 @@ class AuthorisationResponseBuilder{
                     if format ==  "vc+sd-jwt" || format == "dc+sd-jwt" {
                         pathNested = nil
                         if vpTokenList.count == 1 {
-                            descMap.append(DescriptorMap(id: item.id ?? "", path: "$", format: format ?? "", pathNested: pathNested))
+                            descMap.append(DescriptorMap(id: item.id ?? "", path: "$", format: encodedFormat ?? "", pathNested: pathNested))
                         } else {
-                            descMap.append(DescriptorMap(id: item.id ?? "", path: "$[\(vpTokenIndex)]", format: format ?? "", pathNested: pathNested))
+                            descMap.append(DescriptorMap(id: item.id ?? "", path: "$[\(vpTokenIndex)]", format: encodedFormat ?? "", pathNested: pathNested))
                         }
                         vpTokenIndex += 1
                     } else if credentialFormat == "mso_mdoc" {
