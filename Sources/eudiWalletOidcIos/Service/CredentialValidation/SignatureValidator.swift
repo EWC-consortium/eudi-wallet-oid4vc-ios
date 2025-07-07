@@ -60,10 +60,12 @@ public class SignatureValidator {
                 }
             }
             let (isValidSignature, isX5cSigNotValid) = validateSignature(jwt: jwt, jwk: jwksArray)
-            if isX5cSigNotValid {
+            if let isValid = isValidSignature, isValid {
+                return true
+            } else if isX5cSigNotValid {
                 throw ValidationError.invalidKID
             } else {
-                return isValidSignature
+                return false
             }
         }
     }
