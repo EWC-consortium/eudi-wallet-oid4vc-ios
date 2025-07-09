@@ -53,8 +53,13 @@ public class MDocVpTokenBuilder : VpTokenBuilder{
                     } else {
                         nameSpaceData = cborNameSpace
                     }
-                    let docType = getDocTypeFromIssuerAuth(cborData: issuerAuthData)
-                    docFiltered.append(contentsOf: [Document(docType: docType ?? "", issuerSigned: IssuerSigned(nameSpaces: nameSpaceData ?? nil, issuerAuth: issuerAuthData))])
+                    var docType = ""
+                    if let docTypeValue = getDocTypeFromIssuerAuth(cborData: issuerAuthData), !docTypeValue.isEmpty {
+                        docType = docTypeValue
+                    } else if let docTypeValue = presentationDefinition?.docType,  !docTypeValue.isEmpty {
+                        docType = docTypeValue
+                    }
+                    docFiltered.append(contentsOf: [Document(docType: docType, issuerSigned: IssuerSigned(nameSpaces: nameSpaceData ?? nil, issuerAuth: issuerAuthData))])
                     
                     let documentsToAdd = docFiltered.count == 0 ? nil : docFiltered
                     let deviceResponseToSend = DeviceResponse(version: "1.0", documents: documentsToAdd,status: 0)

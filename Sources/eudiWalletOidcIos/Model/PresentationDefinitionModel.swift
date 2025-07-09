@@ -12,9 +12,11 @@ public struct PresentationDefinitionModel: Codable {
     public let purpose: String?
     public let format: [String: JwtVp]?
     public var inputDescriptors: [InputDescriptor]?
+    public var docType: String?
     enum CodingKeys: String, CodingKey {
         case id, format, name, purpose
         case inputDescriptors = "input_descriptors"
+        case docType = "doc_type"
     }
 }
 // MARK: - JwtVp
