@@ -9,7 +9,7 @@ import Foundation
 
 class ErrorHandler {
     
-    static func processError(data: Data?) -> EUDIError? {
+    static func processError(data: Data?, contentType: String? = nil) -> EUDIError? {
             // Convert Data to String for initial check
             guard let data = data, let dataString = String(data: data, encoding: .utf8) else {
                 return EUDIError(from: ErrorResponse(message:"Unexpected error. Please try again.", code: -1))
@@ -20,7 +20,11 @@ class ErrorHandler {
             do {
                 jsonObject = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
             } catch {
-                return EUDIError(from: ErrorResponse(message: dataString, code: -1))
+                if contentType == "text/html" {
+                    return EUDIError(from: ErrorResponse(message:"Unexpected error. Please try again.", code: -1))
+                } else {
+                    return EUDIError(from: ErrorResponse(message: dataString, code: -1))
+                }
             }
 
             // Determine the error response based on the content of the error message

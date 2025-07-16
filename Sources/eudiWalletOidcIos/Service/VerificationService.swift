@@ -106,7 +106,7 @@ public class VerificationService: NSObject, VerificationServiceProtocol {
                         let (data, response) = try await URLSession.shared.data(for: request)
                         if let res = response as? HTTPURLResponse, res.statusCode >= 400 {
                             let dataString = String(data: data, encoding: .utf8)
-                            let errorMsg = EUDIError(from: ErrorResponse(message: dataString, code: nil))
+                            let errorMsg = ErrorHandler.processError(data: data, contentType: res.value(forHTTPHeaderField: "Content-Type"))
                             return(nil, errorMsg)
                         } else {
                         let jsonDecoder = JSONDecoder()
@@ -367,7 +367,7 @@ public class VerificationService: NSObject, VerificationServiceProtocol {
                     let url = URL.init(string: location)
                     if let errorDescription = url?.queryParameters?["error_description"] as? String {
                         let error = errorDescription.replacingOccurrences(of: "+", with: " ").data(using: .utf8)
-                        return WrappedVerificationResponse(data: nil, error: ErrorHandler.processError(data: error))
+                        return WrappedVerificationResponse(data: nil, error: ErrorHandler.processError(data: error, contentType: httpres?.value(forHTTPHeaderField: "Content-Type")))
                     } else {
                         return WrappedVerificationResponse(data: responseUrl, error: nil)
                     }
@@ -382,7 +382,7 @@ public class VerificationService: NSObject, VerificationServiceProtocol {
                     return WrappedVerificationResponse(data: "https://www.example.com?code=1", error: nil)
                 }
             } else if httpres?.statusCode ?? 400 >= 400 {
-                return WrappedVerificationResponse(data: nil, error: ErrorHandler.processError(data: data))
+                return WrappedVerificationResponse(data: nil, error: ErrorHandler.processError(data: data, contentType: httpres?.value(forHTTPHeaderField: "Content-Type")))
             } else{
                 guard let dataString = String(data: data, encoding: .utf8) else {
                     return WrappedVerificationResponse(data: "data", error: nil)

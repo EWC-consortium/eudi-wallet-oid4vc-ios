@@ -46,7 +46,7 @@ public class IssueService: NSObject, IssueServiceProtocol {
                     let httpRes = response as? HTTPURLResponse
                     if let res = httpRes?.statusCode, res >= 400 {
                         let errorData = String(data: data, encoding: .utf8)
-                        if let eudiErrorData = ErrorHandler.processError(data: data) {
+                        if let eudiErrorData = ErrorHandler.processError(data: data, contentType: httpRes?.value(forHTTPHeaderField: "Content-Type")) {
                             return CredentialOffer(fromError: eudiErrorData)
                         } else {
                             let error = EUDIError(from: ErrorResponse(message: errorData, code: nil))
@@ -261,7 +261,7 @@ public class IssueService: NSObject, IssueServiceProtocol {
                         ]
                     }
                 } else if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
-                    return WrappedResponse(data: nil, error: ErrorHandler.processError(data: data))
+                    return WrappedResponse(data: nil, error: ErrorHandler.processError(data: data, contentType: httpResponse.value(forHTTPHeaderField: "Content-Type")))
                 }
                 else {
                     debugPrint("Failed to get request_uri from the PAR response.")
@@ -313,7 +313,7 @@ public class IssueService: NSObject, IssueServiceProtocol {
             if httpres?.statusCode == 302, let location = httpres?.value(forHTTPHeaderField: "Location"){
                 responseUrl = location
             } else if httpres?.statusCode ?? 0 >= 400 {
-                return WrappedResponse(data: nil, error: ErrorHandler.processError(data: data))
+                return WrappedResponse(data: nil, error: ErrorHandler.processError(data: data, contentType: httpres?.value(forHTTPHeaderField: "Content-Type")))
             } else if httpres?.statusCode == 200, let contentType = httpres?.value(forHTTPHeaderField: "Content-Type"), contentType.contains("text/html") {
                 responseUrl = authorizationURL.absoluteString
             } else{
@@ -651,7 +651,7 @@ public class IssueService: NSObject, IssueServiceProtocol {
                 if httpRes?.statusCode ?? 0 >= 400 {
                     let errorString = String(data: data, encoding: .utf8)
                     let error = EUDIError(from: ErrorResponse(message: errorString))
-                    if let eudiErrorData = ErrorHandler.processError(data: data) {
+                    if let eudiErrorData = ErrorHandler.processError(data: data, contentType: httpRes?.value(forHTTPHeaderField: "Content-Type")) {
                         return CredentialResponse(fromError: eudiErrorData)
                     } else {
                         return CredentialResponse(fromError: error)
@@ -670,8 +670,9 @@ public class IssueService: NSObject, IssueServiceProtocol {
                     return CredentialResponse(from: model)
                 }
                 else {
-                    let error = EUDIError(from: ErrorResponse(message: "Invalid data format", code: nil))
-                    return CredentialResponse(fromError: error)
+                    //let error = EUDIError(from: ErrorResponse(message: "Invalid data format", code: nil))
+            let error = ErrorHandler.processError(data: data, contentType: httpRes?.value(forHTTPHeaderField: "Content-Type"))
+                    return CredentialResponse(fromError: error ?? EUDIError(from: ErrorResponse(message: "Invalid data format", code: nil)))
                 }
             } catch {
                 debugPrint("Process credential request failed: \(error)")
@@ -791,7 +792,7 @@ public class IssueService: NSObject, IssueServiceProtocol {
                 if let dataResponse = response as? HTTPURLResponse, dataResponse.statusCode >= 400, let errorData =  dataString {
                     let jsonData = errorData.data(using: .utf8)
                     ErrorHandler.processError(data: data)
-                    return TokenResponse(error: ErrorHandler.processError(data: data))
+                    return TokenResponse(error: ErrorHandler.processError(data: data, contentType: httpres?.value(forHTTPHeaderField: "Content-Type")))
                 } else {
                     let dataResponse = response as? HTTPURLResponse
                     let lpid = dataResponse?.value(forHTTPHeaderField: "legal-pid-attestation")
@@ -859,7 +860,7 @@ public class IssueService: NSObject, IssueServiceProtocol {
                 if httpsResponse?.statusCode ?? 0 >= 400 {
                     let dataString = String(data: data, encoding: .utf8)
                     let error = EUDIError(from: ErrorResponse(message: dataString))
-                    return TokenResponse(error: ErrorHandler.processError(data: data))
+                    return TokenResponse(error: ErrorHandler.processError(data: data, contentType: httpsResponse?.value(forHTTPHeaderField: "Content-Type")))
                 } else {
                     var model = try jsonDecoder.decode(TokenResponse.self, from: data)
                     let lpid = httpsResponse?.value(forHTTPHeaderField: "legal-pid-attestation")
