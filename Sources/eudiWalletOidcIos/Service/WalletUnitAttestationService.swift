@@ -96,19 +96,11 @@ public class WalletUnitAttestationService {
     }
     
     private func fetchNonceForDeviceIntegrityToken(nonceEndPoint: String) async -> String {
-        var nonce: String = ""
-        var request = URLRequest(url: URL(string: nonceEndPoint)!)
-        request.httpMethod = "GET"
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            let stringData = String.init(data: data, encoding: .utf8)
-            let jsonObject = try JSONSerialization.jsonObject(with: data, options: [])
-            let dict = jsonObject as? [String: Any]
-            nonce = dict?["nonce"] as? String ?? ""
-        } catch {
-            print("error")
+        if let nonce = await NonceService().fetchNonceEndpoint(nonceEndPoint: nonceEndPoint) {
+            return nonce
+        } else {
+            return ""
         }
-        return nonce
     }
     
     public func createDIDforWUA(keyHandler: SecureKeyProtocol) async -> String {

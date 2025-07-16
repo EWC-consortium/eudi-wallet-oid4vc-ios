@@ -12,11 +12,13 @@ public class NonceService: NonceServiceProtocol {
     public static var shared = NonceService()
     public init() {}
     
-    public func fetchNonceEndpoint(accessToken: String?, nonceEndPoint: String?) async -> String? {
+    public func fetchNonceEndpoint(accessToken: String? = nil, nonceEndPoint: String?) async -> String? {
         guard let url = URL(string: nonceEndPoint ?? "") else { return nil }
         
         var request = URLRequest(url: url)
-        request.setValue( "Bearer \(accessToken ?? "")", forHTTPHeaderField: "Authorization")
+        if let accessToken = accessToken {
+            request.setValue( "Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        }
         request.httpMethod = "POST"
         
         do {
